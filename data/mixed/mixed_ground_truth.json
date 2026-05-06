@@ -1,0 +1,14 @@
+{
+  "sources": [
+    {
+      "speaker": "Mohit",
+      "text": "Hey assistant, turn on my bedroom light.",
+      "file": "F:\\College\\5th Sem\\MUA\\multi_user_smart_assistant\\data\\mixed\\clean_source_1.wav"
+    },
+    {
+      "speaker": "Rahul",
+      "text": "Hey assistant, play my study playlist.",
+      "file": "F:\\College\\5th Sem\\MUA\\multi_user_smart_assistant\\data\\mixed\\clean_source_2.wav"
+    }
+  ]
+}

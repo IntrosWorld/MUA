@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>User Profiles — Smart Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="profiles.css"/>
+</head>
+<body>
+<div class="mesh-bg"><div class="mesh-orb"></div></div>
+<div class="app-wrap">
+
+  <!-- Header -->
+  <header class="site-header">
+    <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:0.6rem;">
+      <div class="header-icon">🎙</div>
+    </a>
+    <div>
+      <div class="header-title">User Profiles &amp; Workspace</div>
+      <div class="header-sub">Calendar · Fitness · Movies · Music · Smart Home</div>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:0.75rem;">
+      <!-- LLM mode toggle -->
+      <div class="llm-toggle-wrap" id="llmToggleWrap">
+        <button class="llm-btn active" id="btnOffline" onclick="setLLMMode('offline')">🦙 Offline LLM</button>
+        <button class="llm-btn"        id="btnGemini"  onclick="setLLMMode('gemini')">✨ Gemini</button>
+      </div>
+      <button class="btn btn-ghost" style="width:auto;padding:0.4rem 0.85rem;font-size:0.78rem;" onclick="showGeminiKeyModal()">🔑 API Key</button>
+      <a href="/" class="btn btn-ghost" style="width:auto;padding:0.4rem 0.85rem;font-size:0.78rem;text-decoration:none;">← Back</a>
+    </div>
+  </header>
+
+  <div class="profiles-layout">
+
+    <!-- Sidebar -->
+    <aside class="profiles-sidebar">
+      <div class="sidebar-title">Users</div>
+      <div id="profileList"></div>
+      <button class="btn btn-ghost" style="margin-top:1rem;font-size:0.8rem;" onclick="showAddUser()">＋ Add User</button>
+    </aside>
+
+    <!-- Main content -->
+    <main class="profiles-main" id="profileMain">
+      <div class="empty-state">
+        <div style="font-size:3rem;margin-bottom:1rem;">👈</div>
+        <div style="color:var(--text-2);font-size:0.95rem;">Select a user from the sidebar</div>
+      </div>
+    </main>
+  </div>
+
+</div>
+
+<!-- Gemini key modal -->
+<div class="modal-backdrop hidden" id="geminiModal">
+  <div class="modal-box">
+    <div class="modal-title">🔑 Gemini API Key</div>
+    <p style="font-size:0.82rem;color:var(--text-2);margin-bottom:1rem;">
+      Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--violet);">aistudio.google.com</a>
+    </p>
+    <input id="geminiKeyInput" type="password" placeholder="AIza..."
+      style="width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;
+             color:var(--text);padding:0.6rem 0.8rem;font-size:0.85rem;font-family:inherit;margin-bottom:0.85rem;"/>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button class="btn btn-ghost" style="width:auto;" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" style="width:auto;" onclick="saveGeminiKey()">Save Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add user modal -->
+<div class="modal-backdrop hidden" id="addUserModal">
+  <div class="modal-box">
+    <div class="modal-title">➕ Add New User</div>
+    <div style="display:flex;flex-direction:column;gap:0.75rem;">
+      <div>
+        <div class="cmd-item-label" style="margin-bottom:0.3rem;">Name</div>
+        <input id="newUserName" type="text" placeholder="e.g. Arjun"
+          style="width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;
+                 color:var(--text);padding:0.5rem 0.7rem;font-size:0.85rem;font-family:inherit;"/>
+      </div>
+      <div>
+        <div class="cmd-item-label" style="margin-bottom:0.3rem;">Room</div>
+        <input id="newUserRoom" type="text" placeholder="e.g. Arjun's bedroom"
+          style="width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;
+                 color:var(--text);padding:0.5rem 0.7rem;font-size:0.85rem;font-family:inherit;"/>
+      </div>
+      <div>
+        <div class="cmd-item-label" style="margin-bottom:0.3rem;">Avatar Color</div>
+        <input id="newUserColor" type="color" value="#7c3aed" style="height:36px;width:60px;border:none;background:none;cursor:pointer;"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
+      <button class="btn btn-ghost" style="width:auto;" onclick="closeAddUser()">Cancel</button>
+      <button class="btn btn-primary" style="width:auto;" onclick="createUser()">Create Profile</button>
+    </div>
+  </div>
+</div>
+
+<script src="profiles.js"></script>
+</body>
+</html>

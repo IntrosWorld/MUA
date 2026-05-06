@@ -1,0 +1,29 @@
+# Core
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+
+# Audio
+soundfile>=0.12.1
+librosa>=0.10.1
+numpy>=1.24.0
+scipy>=1.11.0
+
+# TTS
+edge-tts>=6.1.9
+
+# ASR
+faster-whisper>=1.0.0
+
+# Speaker embeddings + separation (SpeechBrain)
+speechbrain>=1.0.0
+
+# ML base
+torch>=2.1.0
+torchaudio>=2.1.0
+
+# Metrics
+jiwer>=3.0.3
+
+# Audio conversion (optional but recommended)
+pydub>=0.25.1
