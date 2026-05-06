@@ -2,12 +2,12 @@
   "sources": [
     {
       "speaker": "Mohit",
-      "text": "Hey assistant, turn on my bedroom light.",
+      "text": "Hey assistant, what is my schedule today?",
       "file": "F:\\College\\5th Sem\\MUA\\multi_user_smart_assistant\\data\\mixed\\clean_source_1.wav"
     },
     {
       "speaker": "Rahul",
-      "text": "Hey assistant, turn on the AC.",
+      "text": "Hey assistant, set an alarm for seven AM.",
       "file": "F:\\College\\5th Sem\\MUA\\multi_user_smart_assistant\\data\\mixed\\clean_source_2.wav"
     }
   ]
