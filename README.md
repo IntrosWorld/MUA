@@ -1,4 +1,4 @@
-# Real-Time Multi-User Smart Assistant for Dynamic and Noisy Smart Environments
+# Real-Time Multi-User Smart Assistant for Dynamic and Noisy Smart Environments (MultiVox)
 
 A hackathon prototype that separates overlapping voices, identifies speakers, transcribes speech, detects smart-home commands, and returns personalized responses — all through a modern web UI.
 
