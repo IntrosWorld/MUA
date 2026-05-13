@@ -85,7 +85,7 @@ function renderProfile(p) {
 
     <!-- Tabs -->
     <div class="ws-tabs">
-      ${["📅 Calendar","💪 Fitness","🎬 Movies","🎵 Music","📝 Notes","🏠 Smart Home","🤖 AI Chat"].map((t,i) =>
+      ${["Calendar","Fitness","Movies","Music","Notes","Smart Home","AI Chat"].map((t,i) =>
         `<button class="ws-tab${i===0?' active':''}" onclick="switchTab(${i},this)">${t}</button>`
       ).join("")}
     </div>
@@ -110,7 +110,7 @@ function switchTab(idx, btn) {
 function renderCalendar(events, uname) {
   const rows = events.map(e => `
     <div class="event-item${e.done?' event-done':''}" id="evt-${e.id}">
-      <button class="check-btn${e.done?' done':''}" onclick="toggleEvent('${uname}','${e.id}',${!e.done})">✓</button>
+      <button class="check-btn${e.done?' done':''}" onclick="toggleEvent('${uname}','${e.id}',${!e.done})">&#10003;</button>
       <span class="event-time">${e.time}</span>
       <span class="event-name">${e.event}</span>
       <span class="event-cat cat-${e.category||'personal'}">${e.category||'personal'}</span>
@@ -128,7 +128,7 @@ function renderCalendar(events, uname) {
         <option value="fitness">Fitness</option>
         <option value="club">Club</option>
       </select>
-      <button class="add-btn" onclick="addEvent('${uname}')">＋ Add</button>
+      <button class="add-btn" onclick="addEvent('${uname}')">+ Add</button>
     </div>
   </div>`;
 }
@@ -161,47 +161,46 @@ async function addEvent(uname) {
 // ── Fitness ─────────────────────────────────────────────────────────────────
 function renderFitness(fit, uname) {
   const stats = [
-    {icon:"👟", val: fit.steps_today?.toLocaleString()||0, label:"Steps"},
-    {icon:"🔥", val: fit.calories_burned||0, label:"Calories"},
-    {icon:"💧", val: `${fit.water_ml||0}ml`, label:"Water"},
-    {icon:"⚖️", val: `${fit.weight_kg||"-"}kg`, label:"Weight"},
+    {label:"Steps",    val: fit.steps_today?.toLocaleString()||0},
+    {label:"Calories", val: fit.calories_burned||0},
+    {label:"Water",    val: `${fit.water_ml||0}ml`},
+    {label:"Weight",   val: `${fit.weight_kg||"-"}kg`},
   ];
   const statsHtml = stats.map(s => `
     <div class="fitness-stat">
-      <div class="fs-icon">${s.icon}</div>
       <div class="fs-val">${s.val}</div>
       <div class="fs-label">${s.label}</div>
     </div>`).join("");
 
   const workouts = (fit.workouts||[]).map(w => `
     <div class="workout-item">
-      <span class="w-type">🏋️ ${w.type}</span>
+      <span class="w-type">${w.type}</span>
       <span class="w-dur">${w.duration_min} min</span>
       <span class="w-cal">${w.calories} cal</span>
       <span style="font-size:0.75rem;color:var(--text-3);margin-left:0.5rem;">${w.notes||""}</span>
     </div>`).join("");
 
   return `<div class="ws-panel" id="panel-1">
-    <div style="font-size:0.78rem;color:var(--violet);font-weight:600;margin-bottom:0.75rem;">🎯 Goal: ${fit.goal||"Not set"}</div>
+    <div style="font-size:0.78rem;color:var(--violet);font-weight:600;margin-bottom:0.75rem;">Goal: ${fit.goal||"Not set"}</div>
     <div class="fitness-grid">${statsHtml}</div>
-    <div class="card-title" style="margin-bottom:0.5rem;"><span>🏋️</span> Today's Workouts</div>
+    <div class="card-title" style="margin-bottom:0.5rem;">Today's Workouts</div>
     ${workouts || '<div style="color:var(--text-3);font-size:0.85rem;">No workouts logged today.</div>'}
   </div>`;
 }
 
 // ── Movies ──────────────────────────────────────────────────────────────────
 function renderMovies(mov, uname) {
-  const watchlist = (mov.watchlist||[]).map(m => `<span class="movie-chip watchlist">🎬 ${m}</span>`).join("");
-  const watched   = (mov.watched||[]).map(m => `<span class="movie-chip watched">✓ ${m.title} <span class="movie-rating">${"⭐".repeat(Math.round((m.rating||0)/2))}</span></span>`).join("");
+  const watchlist = (mov.watchlist||[]).map(m => `<span class="movie-chip watchlist">${m}</span>`).join("");
+  const watched   = (mov.watched||[]).map(m => `<span class="movie-chip watched">${m.title} <span class="movie-rating">${m.rating ? m.rating + "/10" : ""}</span></span>`).join("");
 
   return `<div class="ws-panel" id="panel-2">
-    <div class="movie-section-title">📋 Watchlist (${(mov.watchlist||[]).length})</div>
+    <div class="movie-section-title">Watchlist (${(mov.watchlist||[]).length})</div>
     <div class="movie-grid">${watchlist || '<span style="color:var(--text-3);font-size:0.82rem;">Empty</span>'}</div>
     <div class="add-form">
       <input class="add-input" id="mov-name" placeholder="Add to watchlist…"/>
-      <button class="add-btn" onclick="addMovie('${uname}')">＋ Add</button>
+      <button class="add-btn" onclick="addMovie('${uname}')">+ Add</button>
     </div>
-    <div class="movie-section-title" style="margin-top:1rem;">✅ Watched (${(mov.watched||[]).length})</div>
+    <div class="movie-section-title" style="margin-top:1rem;">Watched (${(mov.watched||[]).length})</div>
     <div class="movie-grid">${watched || '<span style="color:var(--text-3);font-size:0.82rem;">None yet</span>'}</div>
   </div>`;
 }
@@ -220,17 +219,17 @@ function renderMusic(mus, uname) {
   const np = mus.currently_playing ? `<div class="now-playing">▶ ${mus.currently_playing}</div>` : "";
   const playlists = (mus.playlists||[]).map(pl => `
     <div class="playlist-card">
-      <div class="playlist-name">🎵 ${pl.name}</div>
+      <div class="playlist-name">${pl.name}</div>
       <div class="track-list">${pl.tracks.map(t=>`<span class="track-chip">${t}</span>`).join("")}</div>
     </div>`).join("");
 
   return `<div class="ws-panel" id="panel-3">
     ${np}
-    <div class="card-title" style="margin-bottom:0.75rem;"><span>🎵</span> Playlists</div>
+    <div class="card-title" style="margin-bottom:0.75rem;">Playlists</div>
     ${playlists || '<div style="color:var(--text-3);font-size:0.85rem;">No playlists.</div>'}
     <div class="add-form">
       <input class="add-input" id="mus-name" placeholder="New playlist name…"/>
-      <button class="add-btn" onclick="addPlaylist('${uname}')">＋ Playlist</button>
+      <button class="add-btn" onclick="addPlaylist('${uname}')">+ Playlist</button>
     </div>
   </div>`;
 }
@@ -248,7 +247,7 @@ async function addPlaylist(uname) {
 function renderNotes(notes, uname) {
   const rows = notes.map(n => `
     <div class="note-card">
-      <span class="note-pin${n.pinned?' pinned':''}">${n.pinned?"📌":"📄"}</span>
+      <span class="note-pin${n.pinned?' pinned':''}"></span>
       <div style="flex:1;">
         <div class="note-text">${n.text}</div>
         <div class="note-date">${n.date}</div>
@@ -259,7 +258,7 @@ function renderNotes(notes, uname) {
     ${rows || '<div style="color:var(--text-3);font-size:0.85rem;">No notes.</div>'}
     <div class="add-form">
       <input class="add-input" id="note-text" placeholder="Write a note…"/>
-      <button class="add-btn" onclick="addNote('${uname}')">＋ Note</button>
+      <button class="add-btn" onclick="addNote('${uname}')">+ Note</button>
     </div>
   </div>`;
 }
@@ -273,16 +272,15 @@ async function addNote(uname) {
 
 // ── Smart Home ──────────────────────────────────────────────────────────────
 const SH_DEVICES = [
-  {key:"bedroom_light", icon:"💡", name:"Light"},
-  {key:"fan",           icon:"🌀", name:"Fan"},
-  {key:"ac",            icon:"❄️", name:"AC"},
-  {key:"tv",            icon:"📺", name:"TV"},
+  {key:"bedroom_light", name:"Light"},
+  {key:"fan",           name:"Fan"},
+  {key:"ac",            name:"AC"},
+  {key:"tv",            name:"TV"},
 ];
 
 function renderSmartHome(sh, uname) {
   const cards = SH_DEVICES.map(d => `
     <div class="sh-card ${sh[d.key]?'on':'off'}" id="sh-${d.key}" onclick="toggleDevice('${uname}','${d.key}')">
-      <div class="sh-icon">${d.icon}</div>
       <div class="sh-name">${d.name}</div>
       <div class="sh-state">${sh[d.key]?"ON":"OFF"}</div>
     </div>`).join("");

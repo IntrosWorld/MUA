@@ -23,6 +23,7 @@ def run_pipeline(
     num_speakers: int = None,
     use_llm: bool = True,
     llm_mode: str = None,
+    sep_model: str = "sepformer_whamr16k",
 ) -> dict:
     t_start = time.time()
     audio_duration = get_audio_duration(input_audio_path)
@@ -53,10 +54,12 @@ def run_pipeline(
         clean_paths=clean_paths,
         num_speakers=num_speakers,
         demo_oracle=demo_oracle,
+        sep_model=sep_model,
     )
     separated_paths = sep_result["separated_paths"]
-    sep_mode = sep_result["mode"]
-    sep_warning = sep_result.get("warning")
+    sep_mode        = sep_result["mode"]
+    sep_warning     = sep_result.get("warning")
+    sep_model_label = sep_result.get("model_label", sep_mode)
 
     # Step 4: Per-speaker processing
     results = []
@@ -150,13 +153,14 @@ def run_pipeline(
     )
 
     report = {
-        "input_audio": input_audio_path,
-        "detected_speakers": len(results),
-        "speech_segments": speech_segments,
-        "separation_mode": sep_mode,
+        "input_audio":        input_audio_path,
+        "detected_speakers":  len(results),
+        "speech_segments":    speech_segments,
+        "separation_mode":    sep_mode,
+        "separation_model":   sep_model_label,
         "separation_warning": sep_warning,
-        "results": results,
-        "metrics": metrics,
+        "results":            results,
+        "metrics":            metrics,
     }
 
     # Save report

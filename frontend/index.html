@@ -17,13 +17,19 @@
 
   <!-- Header -->
   <header class="site-header">
-    <div class="header-icon">🎙</div>
+    <div class="header-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+      </svg>
+    </div>
     <div>
       <div class="header-title">Multi-User Smart Assistant</div>
-      <div class="header-sub">Voice Sep · Speaker ID · Intent · Response</div>
+      <div class="header-sub">Voice Sep &middot; Speaker ID &middot; Intent &middot; Response</div>
     </div>
     <div style="margin-left:auto;display:flex;align-items:center;gap:0.75rem;">
-      <a href="/profiles-page" class="btn btn-ghost" style="width:auto;padding:0.4rem 0.9rem;font-size:0.78rem;text-decoration:none;">👤 Profiles</a>
+      <a href="/profiles-page" class="btn btn-ghost" style="width:auto;padding:0.38rem 0.9rem;font-size:0.77rem;text-decoration:none;">Profiles</a>
       <div class="header-badge">
         <span class="dot-live"></span>
         Prototype Ready
@@ -32,6 +38,20 @@
   </header>
 
   <main>
+
+    <!-- Page intro -->
+    <div class="page-intro">
+      <div>
+        <div class="intro-title">Multi-Speaker AI Pipeline</div>
+        <div class="intro-sub">Separate voices &rarr; Identify speakers &rarr; Recognize intent &rarr; Generate response</div>
+      </div>
+      <div class="intro-pills">
+        <span class="intro-pill">SepFormer</span>
+        <span class="intro-pill">ECAPA-TDNN</span>
+        <span class="intro-pill">Whisper large-v3</span>
+        <span class="intro-pill">Llama 3.2 3B</span>
+      </div>
+    </div>
 
     <!-- Status bar -->
     <div id="statusBar" class="status-bar hidden">
@@ -44,7 +64,7 @@
 
       <!-- Config card -->
       <div class="card">
-        <div class="card-title"><span>⚙️</span> Pipeline Configuration</div>
+        <div class="card-title">Pipeline Configuration</div>
 
         <div class="controls-list">
           <div class="ctrl-row">
@@ -81,39 +101,48 @@
           <div class="ctrl-row">
             <span class="ctrl-label">Separation</span>
             <div class="pill-row" id="g-oracle">
-              <button class="pill active" data-v="false" onclick="pick(this,'g-oracle')" title="Uses SpeechBrain SepFormer pretrained model — actually separates voices">⚡ SepFormer (Real)</button>
-              <button class="pill"        data-v="true"  onclick="pick(this,'g-oracle')" title="Skips separation — uses pre-generated clean TTS sources directly">🎭 Oracle (Demo cheat)</button>
+              <button class="pill active" data-v="false" onclick="pick(this,'g-oracle');toggleSepModel()" title="Uses a pretrained SepFormer model — actually separates voices">Real Model</button>
+              <button class="pill"        data-v="true"  onclick="pick(this,'g-oracle');toggleSepModel()" title="Skips separation — copies pre-generated clean TTS sources directly">Oracle (Cheat)</button>
+            </div>
+          </div>
+          <div class="ctrl-row" id="row-sep-model">
+            <span class="ctrl-label">Sep Model</span>
+            <div class="pill-row" id="g-sep-model">
+              <button class="pill active" data-v="sepformer_whamr16k"  onclick="pick(this,'g-sep-model')" title="Native 16 kHz | robust to reverb &amp; noise | recommended">WHAMR 16K</button>
+              <button class="pill"        data-v="sepformer_libri2mix" onclick="pick(this,'g-sep-model')" title="8 kHz | trained on 2000+ LibriSpeech speakers | clean speech">LibriMix</button>
             </div>
           </div>
         </div>
 
         <!-- Command picker -->
         <div class="cmd-section">
-          <div class="card-title" style="margin-bottom:0.85rem"><span>🗣</span> Speaker Commands</div>
+          <div class="card-title" style="margin-bottom:0.85rem;">Speaker Commands</div>
           <div class="cmd-grid" id="cmdGrid"></div>
         </div>
       </div>
 
       <!-- Actions sidebar -->
       <div class="card actions-card">
-        <div class="card-title"><span>🚀</span> Actions</div>
+        <div class="card-title">Actions</div>
 
+        <div class="action-group-label">Demo</div>
         <button class="btn btn-primary" onclick="generateDemo()">
-          🎤 Generate Demo Audio
+          Generate Demo Audio
         </button>
         <button class="btn btn-accent" onclick="processDemo()">
-          ⚡ Process Demo Audio
+          Process Demo Audio
         </button>
 
         <div class="btn-divider"></div>
 
+        <div class="action-group-label">Your Audio</div>
         <input type="file" id="fileInput" accept="audio/*" style="display:none" onchange="onFileChosen(this)" />
         <button class="btn btn-ghost" onclick="document.getElementById('fileInput').click()">
-          📂 Upload Your Audio
+          Upload Audio
         </button>
         <div id="uploadedName" class="hidden uploaded-name"></div>
         <button class="btn btn-ghost" id="btnProcess" onclick="processUpload()" disabled>
-          🔍 Process Uploaded Audio
+          Process Uploaded Audio
         </button>
       </div>
 
@@ -121,7 +150,7 @@
 
     <!-- Mixed audio preview -->
     <div class="card hidden" id="mixedSection">
-      <div class="card-title"><span>🔊</span> Mixed Audio Preview</div>
+      <div class="card-title">Mixed Audio Preview</div>
       <div class="mixed-audio-wrap">
         <audio id="mixedPlayer" controls></audio>
         <div class="gt-chips" id="gtChips"></div>
@@ -130,71 +159,75 @@
 
     <!-- Enroll Real Speaker -->
     <div class="card" id="enrollSection">
-      <div class="card-title"><span>🧑</span> Enroll a Real Speaker</div>
-      <p style="font-size:0.82rem;color:var(--text-2);margin-bottom:1.1rem;">
+      <div class="card-title">Enroll a Real Speaker</div>
+
+      <p class="enroll-desc">
         Record yourself saying 3–5 sentences, upload the files, and the system will learn your voice.
         After enrolling, any audio you upload will be matched against your voiceprint.
       </p>
 
-      <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem;">
-        <div style="flex:1;min-width:160px;">
-          <div class="cmd-item-label" style="margin-bottom:0.4rem;">Your Name</div>
-          <input id="enrollName" type="text" placeholder="e.g. Arjun"
-            style="width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;
-                   color:var(--text);padding:0.5rem 0.75rem;font-size:0.85rem;font-family:inherit;" />
+      <div class="enroll-form">
+        <div class="enroll-field grow">
+          <div class="enroll-label">Your Name</div>
+          <input id="enrollName" type="text" placeholder="e.g. Arjun" class="text-input" />
         </div>
-        <div style="flex:2;min-width:200px;">
-          <div class="cmd-item-label" style="margin-bottom:0.4rem;">Voice Samples (1–5 WAV/MP3 files)</div>
-          <input type="file" id="enrollFiles" accept="audio/*" multiple
-            style="width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;
-                   color:var(--text-2);padding:0.45rem 0.6rem;font-size:0.78rem;" />
+        <div class="enroll-field grow2">
+          <div class="enroll-label">Voice Samples (1–5 WAV / MP3 files)</div>
+          <input type="file" id="enrollFiles" accept="audio/*" multiple style="display:none"
+            onchange="updateFileLabel(this,'enrollFilesLabel')" />
+          <div class="file-pick-row">
+            <button class="btn-file" onclick="document.getElementById('enrollFiles').click()">Choose Files</button>
+            <span class="file-pick-label" id="enrollFilesLabel">No files chosen</span>
+          </div>
         </div>
-        <button class="btn btn-primary" style="width:auto;padding:0.65rem 1.4rem;" onclick="enrollSpeaker()">
-          ✚ Enroll Speaker
+        <button class="btn btn-primary" style="width:auto;padding:0.6rem 1.4rem;flex-shrink:0;" onclick="enrollSpeaker()">
+          Enroll Speaker
         </button>
       </div>
 
-      <div id="enrollStatus" class="hidden" style="font-size:0.82rem;padding:0.6rem 0.9rem;border-radius:8px;margin-bottom:0.75rem;"></div>
+      <div id="enrollStatus" class="hidden" style="font-size:0.81rem;padding:0.55rem 0.9rem;border-radius:6px;margin-bottom:0.75rem;"></div>
 
-      <!-- Enrolled speaker list -->
-      <div class="card-title" style="margin-top:0.5rem;"><span>📋</span> Currently Enrolled</div>
-      <div id="speakerList" style="display:flex;flex-wrap:wrap;gap:0.6rem;"></div>
+      <div class="enrolled-list-label">Currently Enrolled</div>
+      <div id="speakerList" style="display:flex;flex-wrap:wrap;gap:0.55rem;"></div>
 
       <!-- Test your voice -->
-      <div style="border-top:1px solid var(--border);margin-top:1.25rem;padding-top:1.25rem;">
-        <div class="card-title"><span>🔎</span> Test: Who Is Speaking?</div>
-        <p style="font-size:0.8rem;color:var(--text-2);margin-bottom:0.85rem;">
+      <div class="voice-test-section">
+        <div class="card-title">Test — Who Is Speaking?</div>
+        <p class="voice-test-desc">
           Upload a single audio clip and see which enrolled speaker the system identifies.
         </p>
-        <div style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;">
-          <input type="file" id="testVoiceFile" accept="audio/*"
-            style="flex:1;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:8px;
-                   color:var(--text-2);padding:0.45rem 0.6rem;font-size:0.78rem;" />
-          <button class="btn btn-ghost" style="width:auto;" onclick="testVoice()">
-            🎯 Identify Speaker
+        <div class="voice-test-row">
+          <input type="file" id="testVoiceFile" accept="audio/*" style="display:none"
+            onchange="updateFileLabel(this,'testVoiceLabel')" />
+          <div class="file-pick-row" style="flex:1;">
+            <button class="btn-file" onclick="document.getElementById('testVoiceFile').click()">Choose File</button>
+            <span class="file-pick-label" id="testVoiceLabel">No file chosen</span>
+          </div>
+          <button class="btn btn-ghost" style="width:auto;padding:0.5rem 1.1rem;flex-shrink:0;" onclick="testVoice()">
+            Identify Speaker
           </button>
         </div>
-        <div id="voiceTestResult" class="hidden" style="margin-top:0.85rem;"></div>
+        <div id="voiceTestResult" class="hidden" style="margin-top:0.9rem;"></div>
       </div>
     </div>
 
     <!-- Results -->
     <div class="card hidden" id="resultsSection">
-      <div class="card-title"><span>📊</span> Speaker Results</div>
+      <div class="card-title">Speaker Results</div>
       <div class="results-grid" id="resultsGrid"></div>
     </div>
 
     <!-- Metrics -->
     <div class="card hidden" id="metricsSection">
-      <div class="card-title"><span>📈</span> Performance Metrics</div>
+      <div class="card-title">Performance Metrics</div>
       <div class="metrics-strip" id="metricsStrip"></div>
     </div>
 
   </main>
 
   <footer>
-    Real-Time Multi-User Smart Assistant &nbsp;·&nbsp; Hackathon Prototype &nbsp;·&nbsp;
-    edge-tts &nbsp;·&nbsp; faster-whisper &nbsp;·&nbsp; SpeechBrain
+    Real-Time Multi-User Smart Assistant &nbsp;&middot;&nbsp; Prototype &nbsp;&middot;&nbsp;
+    edge-tts &nbsp;&middot;&nbsp; faster-whisper &nbsp;&middot;&nbsp; SpeechBrain
   </footer>
 
 </div><!-- /app-wrap -->

@@ -55,6 +55,7 @@ from src.user_profiles import (
 )
 from src.llm_engine import set_llm_mode, get_llm_mode, set_gemini_key, get_status as llm_status
 from src.pipeline import run_pipeline
+from src.separation import list_models as list_sep_models, DEFAULT_MODEL as SEP_DEFAULT
 
 app = FastAPI(title="Multi-User Smart Assistant")
 
@@ -149,6 +150,7 @@ async def process_demo(
     noise_type: str = Form("white"),
     demo_oracle: bool = Form(True),
     cmd_indices: str = Form("0,0,0"),
+    sep_model: str = Form(SEP_DEFAULT),
 ):
     try:
         # Generate if not exists
@@ -180,6 +182,7 @@ async def process_demo(
             clean_paths=mix_result["clean_paths"],
             demo_oracle=demo_oracle,
             num_speakers=num_speakers,
+            sep_model=sep_model,
         )
 
         # Add audio URLs for frontend
@@ -198,7 +201,8 @@ async def process_demo(
 async def process_audio(
     file: UploadFile = File(...),
     num_speakers: int = Form(2),
-    demo_oracle: bool = Form(True),
+    demo_oracle: bool = Form(False),
+    sep_model: str = Form(SEP_DEFAULT),
 ):
     try:
         ext = os.path.splitext(file.filename)[1] or ".wav"
@@ -213,6 +217,7 @@ async def process_audio(
             input_audio_path=tmp_path,
             demo_oracle=demo_oracle,
             num_speakers=num_speakers,
+            sep_model=sep_model,
         )
 
         for r in report["results"]:
@@ -263,6 +268,12 @@ def serve_audio_generic(folder: str, filename: str):
 @app.get("/commands")
 def get_commands():
     return JSONResponse(COMMANDS)
+
+
+@app.get("/api/separation_models")
+def get_separation_models():
+    """Return all available separation models with download status."""
+    return JSONResponse(list_sep_models())
 
 
 # ── Real Speaker Enrollment ────────────────────────────────────────────────

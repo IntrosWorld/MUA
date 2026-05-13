@@ -45,7 +45,7 @@ function buildCmdGrid() {
     item.className = "cmd-item";
     item.innerHTML = `
       <div class="cmd-item-label">
-        <span>🎙</span> ${spk.charAt(0).toUpperCase() + spk.slice(1)}
+        ${spk.charAt(0).toUpperCase() + spk.slice(1)}
       </div>
       <select id="cmd_${spk}">
         ${COMMANDS[spk].map((c, i) => `<option value="${i}">${c}</option>`).join("")}
@@ -63,6 +63,13 @@ function hideStatus() {
   document.getElementById("statusBar").classList.add("hidden");
 }
 
+// ── Toggle sep-model row visibility ──
+function toggleSepModel() {
+  const isOracle = val("g-oracle") === "true";
+  const row = document.getElementById("row-sep-model");
+  if (row) row.style.opacity = isOracle ? "0.35" : "1";
+}
+
 // ── Build FormData from current UI state ──
 function buildFD(extra = {}) {
   const fd = new FormData();
@@ -71,6 +78,7 @@ function buildFD(extra = {}) {
   fd.append("noise_level",  val("g-noise")   || "none");
   fd.append("noise_type",   val("g-ntype")   || "white");
   fd.append("demo_oracle",  val("g-oracle") === "true" ? "true" : "false");
+  fd.append("sep_model",    val("g-sep-model") || "sepformer_whamr16k");
   const n = parseInt(val("g-speakers")) || 2;
   const idxs = ["mohit","rahul","priya"].slice(0,n).map(spk => {
     const el = document.getElementById(`cmd_${spk}`);
@@ -131,7 +139,7 @@ function onFileChosen(input) {
   uploadedFile = input.files[0];
   if (!uploadedFile) return;
   const nameEl = document.getElementById("uploadedName");
-  nameEl.textContent = `📎 ${uploadedFile.name}`;
+  nameEl.textContent = uploadedFile.name;
   nameEl.classList.remove("hidden");
   document.getElementById("btnProcess").disabled = false;
 }
@@ -144,6 +152,7 @@ async function processUpload() {
     fd.append("file", uploadedFile);
     fd.append("num_speakers", val("g-speakers") || "2");
     fd.append("demo_oracle",  val("g-oracle") === "true" ? "true" : "false");
+    fd.append("sep_model",    val("g-sep-model") || "sepformer_whamr16k");
     const res  = await fetch("/process_audio", { method: "POST", body: fd });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || "Server error");
@@ -203,23 +212,24 @@ function renderResults(data) {
           <span class="info-key">Command</span>
           <span class="info-val">
             ${r.is_command
-              ? '<span class="badge badge-cmd">✓ Command detected</span>'
-              : '<span class="badge badge-nocmd">✗ Not a command</span>'}
+              ? '<span class="badge badge-cmd">Command detected</span>'
+              : '<span class="badge badge-nocmd">Not a command</span>'}
           </span>
         </div>
 
-        <div class="response-block">💬 ${r.response}</div>
+        <div class="response-block">${r.response}</div>
 
-        ${warns.map(w => `<div class="warn-tag">⚠ ${w}</div>`).join("")}
+        ${warns.map(w => `<div class="warn-tag">${w}</div>`).join("")}
       </div>`;
     grid.appendChild(card);
   });
 
-  renderMetrics(data.metrics, data.separation_mode, data.separation_warning);
+  renderMetrics(data.metrics, data.separation_mode, data.separation_warning,
+                data.separation_model);
 }
 
 // ── Render metrics ──
-function renderMetrics(m, sepMode, sepWarn) {
+function renderMetrics(m, sepMode, sepWarn, sepModelLabel) {
   const sec   = document.getElementById("metricsSection");
   const strip = document.getElementById("metricsStrip");
   sec.classList.remove("hidden");
@@ -227,13 +237,16 @@ function renderMetrics(m, sepMode, sepWarn) {
   const fmt = (v, unit = "", dec = 2) =>
     v === null || v === undefined ? null : Number(v).toFixed(dec) + unit;
 
+  // Display friendly model label if available, else fall back to mode string
+  const sepDisplay = sepModelLabel || sepMode || "—";
+
   const tiles = [
     { label: "Audio Duration",  val: fmt(m.audio_duration, "s"),              sub: "" },
     { label: "Process Time",    val: fmt(m.processing_time, "s"),             sub: "" },
     { label: "xRT",             val: fmt(m.xRT, "", 3),                       sub: "lower = faster than real-time" },
     { label: "WER",             val: m.wer != null ? fmt(m.wer * 100, "%", 1) : null, sub: "word error rate" },
     { label: "SI-SNR",          val: fmt(m.si_snr, " dB"),                    sub: "signal quality" },
-    { label: "Sep Mode",        val: sepMode || "—",                          sub: sepWarn || "" },
+    { label: "Sep Model",       val: sepDisplay,                              sub: sepWarn || "" },
     { label: "Model Params",    val: typeof m.model_params === "string" && m.model_params.length < 20 ? m.model_params : null,
                                 sub: typeof m.model_params === "string" && m.model_params.length >= 20 ? m.model_params : "" },
   ];
@@ -302,7 +315,7 @@ async function loadSpeakerList() {
         <span style="color:var(--text-3);">${spk.type === "real" ? "Real" : "TTS"}</span>
         <button onclick="deleteSpeaker('${spk.name}', this.parentElement)"
           style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.85rem;padding:0 0.1rem;"
-          title="Remove">✕</button>`;
+          title="Remove">x</button>`;
       container.appendChild(chip);
     });
     if (!data.speakers?.length) {
@@ -372,8 +385,43 @@ async function testVoice() {
   }
 }
 
+// ── Custom file label updater ──
+function updateFileLabel(input, labelId) {
+  const el = document.getElementById(labelId);
+  if (!el) return;
+  if (!input.files.length) {
+    el.textContent = 'No files chosen';
+    el.classList.remove('has-file');
+  } else if (input.files.length === 1) {
+    el.textContent = input.files[0].name;
+    el.classList.add('has-file');
+  } else {
+    el.textContent = `${input.files.length} files selected`;
+    el.classList.add('has-file');
+  }
+}
+
 // ── Init ──
+// ── Load separation model download status on page init ──
+async function loadSepModelStatus() {
+  try {
+    const data = await (await fetch("/api/separation_models")).json();
+    data.forEach(m => {
+      const btn = document.querySelector(`#g-sep-model .pill[data-v="${m.id}"]`);
+      if (!btn) return;
+      if (!m.downloaded) {
+        btn.title += " (not downloaded — will download on first use)";
+        btn.style.opacity = "0.6";
+      } else {
+        btn.title += " (Downloaded)";
+      }
+    });
+  } catch (_) { /* ignore — server may still be starting */ }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   buildCmdGrid();
   loadSpeakerList();
+  loadSepModelStatus();
+  toggleSepModel();   // set initial opacity based on default oracle=false
 });
