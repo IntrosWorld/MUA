@@ -31,11 +31,17 @@ data/profiles/*.json
 data/generated/*.wav
 data/mixed/*.wav
 data/noise/*.wav
+data/ground_truth/*.wav
+data/ground_truth/*.json
 !data/mixed/demo_mixed.wav
 !data/mixed/demo_mixed_ground_truth.json
 !data/mixed/mixed.wav
 !data/mixed/mixed_ground_truth.json
-!data/enrolled_speakers/
+
+# ── Enrolled speaker voice recordings (privacy — user audio, re-enroll locally) ──
+data/enrolled_speakers/**/*.wav
+data/enrolled_speakers/**/*.mp3
+data/enrolled_speakers/**/*.npy
 
 # ── LLM / API config (may contain keys) ──────────────────────────────────────
 data/llm_config.json
