@@ -1,105 +1,104 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>User Profiles — Smart Assistant</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="style.css"/>
-  <link rel="stylesheet" href="profiles.css"/>
-</head>
-<body>
-<div class="mesh-bg"><div class="mesh-orb"></div></div>
-<div class="app-wrap">
-
-  <!-- Header -->
-  <header class="site-header">
-    <a href="/" style="text-decoration:none;display:flex;align-items:center;gap:0.6rem;">
-      <div class="header-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" y1="19" x2="12" y2="22"/>
-        </svg>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="MUA local multi-user voice assistant workspace" />
+    <title>Workspaces | MUA</title>
+    <link rel="icon" href="/assets/icons/waveform.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/profiles.css" />
+    <script src="/common.js" defer></script>
+    <script src="/profiles.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="app-shell">
+      <aside class="rail">
+        <a class="brand" href="/"
+          ><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span
+          >MUA</a
+        >
+        <div class="rail-label eyebrow">Your assistant</div>
+        <nav aria-label="Main navigation">
+          <a class="nav-link" href="/" data-nav="studio"
+            ><span class="icon" data-icon="waveform" aria-hidden="true"></span>Voice studio</a
+          ><a class="nav-link" href="/#people" data-nav="people"
+            ><span class="icon" data-icon="users" aria-hidden="true"></span>People</a
+          ><a class="nav-link active" href="/profiles-page" data-nav="workspaces"
+            ><span class="icon" data-icon="squares-four" aria-hidden="true"></span>Workspaces</a
+          ><a class="nav-link" href="/models-page" data-nav="models"
+            ><span class="icon" data-icon="sliders-horizontal" aria-hidden="true"></span>Model
+            settings</a
+          >
+        </nav>
+        <div class="rail-bottom">
+          <div class="local-chip">Runs on your device</div>
+          <p>Multi-user smart assistant<br />A shared space, a personal response.</p>
+        </div>
+      </aside>
+      <div class="workspace">
+        <header class="topbar">
+          <div class="breadcrumb">
+            Workspace <span>/</span><strong id="breadcrumb">Workspaces</strong>
+          </div>
+          <div class="top-actions">
+            <span class="top-status" data-model-label>Checking model…</span
+            ><button class="icon-btn" data-theme-toggle aria-label="Change theme"></button>
+          </div>
+        </header>
+        <main class="content" id="main">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">Your people, their context</div>
+              <h1>A workspace for everyone.</h1>
+              <p>Keep each person’s schedule, preferences, and conversations together.</p>
+            </div>
+            <button class="btn" id="addUserBtn">
+              <span class="icon" data-icon="plus" aria-hidden="true"></span>Add person
+            </button>
+          </div>
+          <div class="profiles-layout">
+            <aside class="panel profiles-sidebar">
+              <div class="panel-head"><h2>People</h2></div>
+              <div id="profileList" class="profile-list">
+                <p class="small muted">Loading workspaces…</p>
+              </div>
+            </aside>
+            <section id="profileMain" aria-live="polite">
+              <div class="empty-state">
+                <h3>Choose a person</h3>
+                <p>Open a workspace from the list to see their day.</p>
+              </div>
+            </section>
+          </div>
+          <dialog id="addUserModal">
+            <form id="addUserForm">
+              <h2>Add a person</h2>
+              <label class="field"
+                >Name<input
+                  id="newUserName"
+                  required
+                  maxlength="50"
+                  placeholder="e.g. Arjun" /></label
+              ><label class="field"
+                >Room<input id="newUserRoom" maxlength="100" placeholder="e.g. Arjun’s bedroom"
+              /></label>
+              <p class="small muted">
+                A workspace holds their personal context. Enroll their voice in People to recognize
+                them in audio.
+              </p>
+              <div class="dialog-actions">
+                <button class="btn" type="button" id="cancelAddUser">Cancel</button
+                ><button class="btn btn-primary" type="submit">Create workspace</button>
+              </div>
+            </form>
+          </dialog>
+          <p class="footer-note">
+            MUA research prototype. Smart-home states are simulated in your personal workspace.
+          </p>
+        </main>
       </div>
-    </a>
-    <div>
-      <div class="header-title">User Profiles &amp; Workspace</div>
-      <div class="header-sub">Calendar &middot; Fitness &middot; Movies &middot; Music &middot; Smart Home</div>
     </div>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:0.75rem;">
-      <div class="llm-toggle-wrap" id="llmToggleWrap">
-        <button class="llm-btn active" id="btnOffline" onclick="setLLMMode('offline')">Offline LLM</button>
-        <button class="llm-btn"        id="btnGemini"  onclick="setLLMMode('gemini')">Gemini</button>
-      </div>
-      <button class="btn btn-ghost" style="width:auto;padding:0.4rem 0.85rem;font-size:0.78rem;" onclick="showGeminiKeyModal()">API Key</button>
-      <a href="/" class="btn btn-ghost" style="width:auto;padding:0.4rem 0.85rem;font-size:0.78rem;text-decoration:none;">&larr; Back</a>
-    </div>
-  </header>
-
-  <div class="profiles-layout">
-
-    <!-- Sidebar -->
-    <aside class="profiles-sidebar">
-      <div class="sidebar-title">Users</div>
-      <div id="profileList"></div>
-      <button class="btn btn-ghost" style="margin-top:1rem;font-size:0.8rem;" onclick="showAddUser()">+ Add User</button>
-    </aside>
-
-    <!-- Main content -->
-    <main class="profiles-main" id="profileMain">
-      <div class="empty-state">
-        <div style="font-size:1.5rem;margin-bottom:1rem;color:var(--text-2);">&#8592;</div>
-        <div style="color:var(--text-2);font-size:0.95rem;">Select a user from the sidebar</div>
-      </div>
-    </main>
-  </div>
-
-</div>
-
-<!-- Gemini key modal -->
-<div class="modal-backdrop hidden" id="geminiModal">
-  <div class="modal-box">
-    <div class="modal-title">Gemini API Key</div>
-    <p style="font-size:0.82rem;color:var(--text-2);margin-bottom:1rem;">
-      Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--violet);">aistudio.google.com</a>
-    </p>
-    <input id="geminiKeyInput" type="password" placeholder="AIza..."
-      class="text-input" style="margin-bottom:0.85rem;"/>
-    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
-      <button class="btn btn-ghost" style="width:auto;" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" style="width:auto;" onclick="saveGeminiKey()">Save Key</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add user modal -->
-<div class="modal-backdrop hidden" id="addUserModal">
-  <div class="modal-box">
-    <div class="modal-title">Add New User</div>
-    <div style="display:flex;flex-direction:column;gap:0.75rem;">
-      <div>
-        <div class="cmd-item-label" style="margin-bottom:0.3rem;">Name</div>
-        <input id="newUserName" type="text" placeholder="e.g. Arjun" class="text-input" />
-      </div>
-      <div>
-        <div class="cmd-item-label" style="margin-bottom:0.3rem;">Room</div>
-        <input id="newUserRoom" type="text" placeholder="e.g. Arjun's bedroom" class="text-input" />
-      </div>
-      <div>
-        <div class="cmd-item-label" style="margin-bottom:0.3rem;">Avatar Color</div>
-        <input id="newUserColor" type="color" value="#7c3aed" style="height:36px;width:60px;border:none;background:none;cursor:pointer;"/>
-      </div>
-    </div>
-    <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
-      <button class="btn btn-ghost" style="width:auto;" onclick="closeAddUser()">Cancel</button>
-      <button class="btn btn-primary" style="width:auto;" onclick="createUser()">Create Profile</button>
-    </div>
-  </div>
-</div>
-
-<script src="profiles.js"></script>
-</body>
+  </body>
 </html>

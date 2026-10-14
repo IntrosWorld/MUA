@@ -1,427 +1,367 @@
-// ── Data ──
-const COMMANDS = {
-  mohit: [
-    "Hey assistant, turn on my bedroom light.",
-    "Hey assistant, what is my schedule today?",
-    "Hey assistant, turn off the fan.",
-  ],
-  rahul: [
-    "Hey assistant, play my study playlist.",
-    "Hey assistant, set an alarm for seven AM.",
-    "Hey assistant, turn on the AC.",
-  ],
-  priya: [
-    "Hey assistant, remind me to call home.",
-    "Hey assistant, play relaxing music.",
-    "Hey assistant, turn off the room light.",
-  ],
-};
-
-const SPEAKER_EMOJI = { mohit: "M", rahul: "R", priya: "P" };
-const AV_CLASS = ["av-0", "av-1", "av-2"];
-
-let uploadedFile = null;
-
-// ── Pill selector ──
-function pick(btn, groupId) {
-  document.querySelectorAll(`#${groupId} .pill`).forEach(p => p.classList.remove("active"));
-  btn.classList.add("active");
-  if (groupId === "g-speakers") buildCmdGrid();
+let commands = {};
+let source = 'demo',
+  uploadedFile = null,
+  audioObjectUrl = null,
+  report = null,
+  busy = false;
+const $ = (id) => document.getElementById(id);
+const e = (value) => MUA.escape(value);
+const selection = (id) => document.querySelector('#' + id + ' .active')?.dataset.v;
+function buildCommands() {
+  const prior = Object.fromEntries(
+    [...document.querySelectorAll('[data-command]')].map((el) => [el.dataset.command, el.value]),
+  );
+  $('cmdGrid').innerHTML = Object.entries(commands)
+    .slice(0, Number(selection('g-speakers')))
+    .map(
+      ([name, items]) =>
+        '<div class="command-row"><div class="avatar" aria-hidden="true">' +
+        e(name[0].toUpperCase()) +
+        '</div><div><label for="cmd-' +
+        e(name) +
+        '">' +
+        e(name[0].toUpperCase() + name.slice(1)) +
+        '</label><select id="cmd-' +
+        e(name) +
+        '" data-command="' +
+        e(name) +
+        '">' +
+        items
+          .map(
+            (text, i) =>
+              '<option value="' +
+              i +
+              '"' +
+              (String(i) === (prior[name] || '0') ? ' selected' : '') +
+              '>' +
+              e(text) +
+              '</option>',
+          )
+          .join('') +
+        '</select></div></div>',
+    )
+    .join('');
 }
-
-function val(groupId) {
-  const el = document.querySelector(`#${groupId} .pill.active`);
-  return el ? el.dataset.v : null;
-}
-
-// ── Command grid ──
-function buildCmdGrid() {
-  const n = parseInt(val("g-speakers")) || 2;
-  const speakers = ["mohit", "rahul", "priya"].slice(0, n);
-  const grid = document.getElementById("cmdGrid");
-  grid.innerHTML = "";
-  speakers.forEach(spk => {
-    const item = document.createElement("div");
-    item.className = "cmd-item";
-    item.innerHTML = `
-      <div class="cmd-item-label">
-        ${spk.charAt(0).toUpperCase() + spk.slice(1)}
-      </div>
-      <select id="cmd_${spk}">
-        ${COMMANDS[spk].map((c, i) => `<option value="${i}">${c}</option>`).join("")}
-      </select>`;
-    grid.appendChild(item);
-  });
-}
-
-// ── Status helpers ──
-function showStatus(msg) {
-  document.getElementById("statusText").textContent = msg;
-  document.getElementById("statusBar").classList.remove("hidden");
-}
-function hideStatus() {
-  document.getElementById("statusBar").classList.add("hidden");
-}
-
-// ── Toggle sep-model row visibility ──
-function toggleSepModel() {
-  const isOracle = val("g-oracle") === "true";
-  const row = document.getElementById("row-sep-model");
-  if (row) row.style.opacity = isOracle ? "0.35" : "1";
-}
-
-// ── Build FormData from current UI state ──
-function buildFD(extra = {}) {
+function formData() {
   const fd = new FormData();
-  fd.append("num_speakers", val("g-speakers") || "2");
-  fd.append("overlap_type", val("g-overlap") || "partial");
-  fd.append("noise_level",  val("g-noise")   || "none");
-  fd.append("noise_type",   val("g-ntype")   || "white");
-  fd.append("demo_oracle",  val("g-oracle") === "true" ? "true" : "false");
-  fd.append("sep_model",    val("g-sep-model") || "sepformer_whamr16k");
-  const n = parseInt(val("g-speakers")) || 2;
-  const idxs = ["mohit","rahul","priya"].slice(0,n).map(spk => {
-    const el = document.getElementById(`cmd_${spk}`);
-    return el ? el.value : "0";
-  });
-  fd.append("cmd_indices", idxs.join(","));
-  for (const [k, v2] of Object.entries(extra)) fd.append(k, v2);
+  for (const [key, value] of Object.entries({
+    num_speakers: selection('g-speakers'),
+    overlap_type: selection('g-overlap'),
+    noise_level: selection('g-noise'),
+    noise_type: selection('g-ntype'),
+    demo_oracle: source === 'upload' ? 'false' : selection('g-oracle'),
+    sep_model: $('sepModel').value,
+    cmd_indices: [...document.querySelectorAll('[data-command]')].map((el) => el.value).join(','),
+  }))
+    fd.append(key, value);
+  if (source === 'upload') fd.append('file', uploadedFile);
   return fd;
 }
-
-// ── Generate Demo ──
-async function generateDemo() {
-  showStatus("Generating TTS voices and mixing audio…");
-  try {
-    const res  = await fetch("/generate_demo", { method: "POST", body: buildFD() });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Server error");
-
-    // Show mixed audio section
-    const sec = document.getElementById("mixedSection");
-    sec.classList.remove("hidden");
-    document.getElementById("mixedPlayer").src = data.audio_url + "?t=" + Date.now();
-
-    // Ground truth chips
-    const chips = document.getElementById("gtChips");
-    chips.innerHTML = "";
-    (data.ground_truth?.sources || []).forEach(s => {
-      const c = document.createElement("div");
-      c.className = "gt-chip";
-      c.innerHTML = `<span class="gt-chip-name">${s.speaker}</span><span class="gt-chip-text">${s.text}</span>`;
-      chips.appendChild(c);
-    });
-
-    hideStatus();
-  } catch (e) {
-    hideStatus();
-    alert("Generate error: " + e.message);
-  }
-}
-
-// ── Process Demo ──
-async function processDemo() {
-  showStatus("Running full pipeline on demo audio…");
-  try {
-    const res  = await fetch("/process_demo", { method: "POST", body: buildFD() });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Server error");
-    renderResults(data);
-    hideStatus();
-  } catch (e) {
-    hideStatus();
-    alert("Process error: " + e.message);
-  }
-}
-
-// ── Upload ──
-function onFileChosen(input) {
-  uploadedFile = input.files[0];
-  if (!uploadedFile) return;
-  const nameEl = document.getElementById("uploadedName");
-  nameEl.textContent = uploadedFile.name;
-  nameEl.classList.remove("hidden");
-  document.getElementById("btnProcess").disabled = false;
-}
-
-async function processUpload() {
-  if (!uploadedFile) return;
-  showStatus("Processing uploaded audio…");
-  try {
-    const fd = new FormData();
-    fd.append("file", uploadedFile);
-    fd.append("num_speakers", val("g-speakers") || "2");
-    fd.append("demo_oracle",  val("g-oracle") === "true" ? "true" : "false");
-    fd.append("sep_model",    val("g-sep-model") || "sepformer_whamr16k");
-    const res  = await fetch("/process_audio", { method: "POST", body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Server error");
-    renderResults(data);
-    hideStatus();
-  } catch (e) {
-    hideStatus();
-    alert("Upload process error: " + e.message);
-  }
-}
-
-// ── Render results ──
-function renderResults(data) {
-  // Speaker cards
-  const sec  = document.getElementById("resultsSection");
-  const grid = document.getElementById("resultsGrid");
-  sec.classList.remove("hidden");
-  grid.innerHTML = "";
-
-  (data.results || []).forEach((r, i) => {
-    const conf    = parseFloat(r.speaker_confidence);
-    const confPct = isNaN(conf) ? "N/A" : (conf * 100).toFixed(1) + "%";
-    const confCls = conf >= 0.65 ? "conf-hi" : conf >= 0.4 ? "conf-md" : "conf-lo";
-    const avCls   = AV_CLASS[i % AV_CLASS.length];
-    const initial = r.identified_speaker ? r.identified_speaker.charAt(0).toUpperCase() : "?";
-
-    const warns = [];
-    if (r.speaker_fallback) warns.push("Speaker ID used oracle fallback");
-    if (r.asr_fallback && r.asr_warning) warns.push(r.asr_warning);
-
-    const card = document.createElement("div");
-    card.className = "spk-card";
-    card.innerHTML = `
-      <div class="spk-card-top">
-        <div class="spk-avatar ${avCls}">${initial}</div>
-        <div class="spk-meta">
-          <div class="spk-name">${r.identified_speaker || "Unknown"}</div>
-          <div class="spk-conf ${confCls}">Match: ${confPct}</div>
-        </div>
-      </div>
-
-      ${r.audio_url ? `
-      <div class="spk-card-audio">
-        <audio controls src="${r.audio_url}?t=${Date.now()}"></audio>
-      </div>` : ""}
-
-      <div class="spk-card-body">
-        <div class="info-row">
-          <span class="info-key">Transcript</span>
-          <span class="info-val transcript">"${r.transcript || "(empty)"}"</span>
-        </div>
-        <div class="info-row">
-          <span class="info-key">Intent</span>
-          <span class="info-val"><span class="badge badge-intent">${r.intent}</span></span>
-        </div>
-        <div class="info-row">
-          <span class="info-key">Command</span>
-          <span class="info-val">
-            ${r.is_command
-              ? '<span class="badge badge-cmd">Command detected</span>'
-              : '<span class="badge badge-nocmd">Not a command</span>'}
-          </span>
-        </div>
-
-        <div class="response-block">${r.response}</div>
-
-        ${warns.map(w => `<div class="warn-tag">${w}</div>`).join("")}
-      </div>`;
-    grid.appendChild(card);
+function updateSource(next) {
+  source = next;
+  document.querySelectorAll('[data-source]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.source === source);
+    btn.setAttribute('aria-selected', btn.dataset.source === source);
   });
-
-  renderMetrics(data.metrics, data.separation_mode, data.separation_warning,
-                data.separation_model);
+  $('demoSource').hidden = source !== 'demo';
+  $('uploadSource').hidden = source !== 'upload';
+  $('demoControls').hidden = source !== 'demo';
+  $('g-oracle').querySelector('[data-v="true"]').disabled = source === 'upload';
+  if (source === 'upload') $('g-oracle').querySelector('[data-v="false"]').click();
+  $('runBtn').innerHTML =
+    MUA.icon('waveform') + (source === 'demo' ? 'Run conversation' : 'Process recording');
+  $('runBtn').disabled = source === 'upload' && !uploadedFile;
+  $('mixedSection').hidden = true;
+  if (source === 'upload' && uploadedFile) showUploadPreview();
 }
-
-// ── Render metrics ──
-function renderMetrics(m, sepMode, sepWarn, sepModelLabel) {
-  const sec   = document.getElementById("metricsSection");
-  const strip = document.getElementById("metricsStrip");
-  sec.classList.remove("hidden");
-
-  const fmt = (v, unit = "", dec = 2) =>
-    v === null || v === undefined ? null : Number(v).toFixed(dec) + unit;
-
-  // Display friendly model label if available, else fall back to mode string
-  const sepDisplay = sepModelLabel || sepMode || "—";
-
-  const tiles = [
-    { label: "Audio Duration",  val: fmt(m.audio_duration, "s"),              sub: "" },
-    { label: "Process Time",    val: fmt(m.processing_time, "s"),             sub: "" },
-    { label: "xRT",             val: fmt(m.xRT, "", 3),                       sub: "lower = faster than real-time" },
-    { label: "WER",             val: m.wer != null ? fmt(m.wer * 100, "%", 1) : null, sub: "word error rate" },
-    { label: "SI-SNR",          val: fmt(m.si_snr, " dB"),                    sub: "signal quality" },
-    { label: "Sep Model",       val: sepDisplay,                              sub: sepWarn || "" },
-    { label: "Model Params",    val: typeof m.model_params === "string" && m.model_params.length < 20 ? m.model_params : null,
-                                sub: typeof m.model_params === "string" && m.model_params.length >= 20 ? m.model_params : "" },
-  ];
-
-  strip.innerHTML = tiles.map(t => `
-    <div class="metric-tile">
-      <div class="m-val${t.val === null ? " na" : ""}">${t.val ?? "N/A"}</div>
-      <div class="m-label">${t.label}</div>
-      ${t.sub ? `<div class="m-sub">${t.sub}</div>` : ""}
-    </div>`).join("");
+function showUploadPreview() {
+  if (audioObjectUrl) URL.revokeObjectURL(audioObjectUrl);
+  audioObjectUrl = URL.createObjectURL(uploadedFile);
+  $('mixedPlayer').src = audioObjectUrl;
+  $('mixedSection').hidden = false;
+  $('previewLabel').textContent = 'Your recording';
 }
-
-// ── Enroll real speaker ──
-async function enrollSpeaker() {
-  const name  = document.getElementById("enrollName").value.trim();
-  const files = document.getElementById("enrollFiles").files;
-  const statusEl = document.getElementById("enrollStatus");
-
-  if (!name) { flashEnroll("Please enter your name.", "warn"); return; }
-  if (!files.length) { flashEnroll("Please select at least one audio file.", "warn"); return; }
-
-  flashEnroll("Enrolling speaker — computing voice embeddings…", "info");
-
-  const fd = new FormData();
-  fd.append("name", name);
-  for (const f of files) fd.append("files", f);
-
+function chooseFile(file) {
+  if (!file) return;
+  if (!(file.type.startsWith('audio/') || /\.(wav|mp3|flac|ogg|m4a|webm)$/i.test(file.name)))
+    return MUA.notify('Choose an audio recording.', true);
+  uploadedFile = file;
+  $('fileSummary').textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)';
+  $('fileSummary').hidden = false;
+  $('runBtn').disabled = false;
+  showUploadPreview();
+}
+async function session(action) {
+  if (busy) return;
+  if (action === 'run' && source === 'upload' && !uploadedFile)
+    return MUA.notify('Choose an audio file first.', true);
+  busy = true;
+  $('statusBar').classList.remove('hidden');
+  $('statusText').textContent =
+    action === 'preview'
+      ? 'Preparing the conversation audio…'
+      : 'Separating voices and preparing personal responses. This can take a few minutes.';
+  const controls = [...$('studioView').querySelectorAll('button,input,select')];
+  const states = controls.map((el) => el.disabled);
+  controls.forEach((el) => (el.disabled = true));
   try {
-    const res  = await fetch("/enroll_speaker", { method: "POST", body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Server error");
-    flashEnroll(`Enrolled "${data.enrolled.name}" with ${data.enrolled.samples} sample(s). Embedding dim: ${data.enrolled.embedding_dim}.`, "ok");
-    loadSpeakerList();
-  } catch (e) {
-    flashEnroll("Enrollment failed: " + e.message, "err");
+    const data = await MUA.api(
+      action === 'preview'
+        ? '/generate_demo'
+        : source === 'demo'
+          ? '/process_demo'
+          : '/process_audio',
+      { method: 'POST', body: formData() },
+    );
+    if (action === 'preview') {
+      $('mixedPlayer').src = data.audio_url + '?t=' + Date.now();
+      $('mixedSection').hidden = false;
+      $('previewLabel').textContent = 'Conversation preview';
+    } else renderResults(data);
+    MUA.notify(action === 'preview' ? 'Conversation ready to preview.' : 'Session complete.');
+  } catch (error) {
+    MUA.notify(error.message, true);
+  } finally {
+    busy = false;
+    controls.forEach((el, i) => (el.disabled = states[i]));
+    $('statusBar').classList.add('hidden');
   }
 }
-
-function flashEnroll(msg, type) {
-  const el = document.getElementById("enrollStatus");
-  el.classList.remove("hidden");
-  const colors = {
-    ok:   "background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#6ee7b7;",
-    warn: "background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25);color:#fcd34d;",
-    err:  "background:rgba(248,113,113,0.10);border:1px solid rgba(248,113,113,0.2);color:#fca5a5;",
-    info: "background:rgba(139,92,246,0.10);border:1px solid rgba(139,92,246,0.25);color:#c4b5fd;",
-  };
-  el.style.cssText = colors[type] || colors.info;
-  el.textContent = msg;
+function renderResults(data) {
+  report = data;
+  $('resultsEmpty').hidden = true;
+  $('exportBtn').hidden = false;
+  $('resultsGrid').innerHTML = (data.results || [])
+    .map((r) => {
+      const name = r.identified_speaker || 'Unknown';
+      const confidence = Number(r.speaker_confidence);
+      const warnings = [
+        r.speaker_fallback ? 'Reference identity was used instead of a voice match.' : '',
+        r.asr_fallback ? r.asr_warning || 'Reference transcript used.' : '',
+      ].filter(Boolean);
+      const audio =
+        r.audio_url && r.audio_url.startsWith('/audio/')
+          ? '<audio controls src="' + e(r.audio_url) + '"></audio>'
+          : '';
+      return (
+        '<article class="panel result-card"><div class="result-person"><div class="avatar">' +
+        e(name[0].toUpperCase()) +
+        '</div><div><h3>' +
+        e(name) +
+        '</h3><p>' +
+        (Number.isFinite(confidence)
+          ? (confidence * 100).toFixed(1) + '% voice match'
+          : 'Voice match unavailable') +
+        '</p></div></div><p class="result-transcript">' +
+        e(r.transcript || 'No speech detected.') +
+        '</p><span class="tag accent">' +
+        e((r.intent || 'unknown').replaceAll('_', ' ')) +
+        '</span> <span class="tag">' +
+        (r.is_command ? 'Command detected' : 'Conversation') +
+        '</span><div class="response">' +
+        e(r.response) +
+        '</div><p class="small muted" style="margin-bottom:12px">' +
+        e(r.response_source === 'llm' ? 'Response from ' + r.llm_model : 'Rule-based response') +
+        '</p>' +
+        audio +
+        warnings.map((w) => '<p class="warning">' + e(w) + '</p>').join('') +
+        '</article>'
+      );
+    })
+    .join('');
+  if (!data.results?.length) {
+    $('resultsEmpty').hidden = false;
+    $('resultsEmpty').querySelector('p').textContent =
+      'No speech streams were found. Try a clearer recording.';
+  }
+  const m = data.metrics || {},
+    fmt = (value, unit = '') => (value == null ? 'Unavailable' : Number(value).toFixed(2) + unit);
+  $('metricsStrip').hidden = false;
+  $('metricsStrip').innerHTML = [
+    ['Audio duration', fmt(m.audio_duration, ' s')],
+    ['Processing time', fmt(m.processing_time, ' s')],
+    ['Real-time factor', fmt(m.xRT, '×')],
+    ['Word error rate', m.wer == null ? 'Unavailable' : (m.wer * 100).toFixed(1) + '%'],
+    ['Signal quality / SI-SNR', fmt(m.si_snr, ' dB')],
+    ['Separation model', data.separation_model || data.separation_mode || 'Unavailable'],
+    ['Model parameters', m.model_params || 'Unavailable'],
+  ]
+    .map(
+      ([label, value]) =>
+        '<div class="metric' +
+        (label === 'Separation model' || label === 'Model parameters' ? ' metric-text' : '') +
+        '"><strong>' +
+        e(value) +
+        '</strong><span>' +
+        label +
+        '</span></div>',
+    )
+    .join('');
+  if (data.separation_warning) MUA.notify(data.separation_warning, true);
+  $('separationNote').hidden = !data.separation_warning;
+  $('separationNote').textContent = data.separation_warning || '';
+  $('resultsGrid').scrollIntoView({
+    behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'instant' : 'smooth',
+    block: 'start',
+  });
 }
-
-async function loadSpeakerList() {
+async function loadSpeakers() {
   try {
-    const res  = await fetch("/speakers");
-    const data = await res.json();
-    const container = document.getElementById("speakerList");
-    container.innerHTML = "";
-    (data.speakers || []).forEach(spk => {
-      const chip = document.createElement("div");
-      chip.style.cssText = `display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.75rem;
-        border-radius:999px;border:1px solid var(--border);background:var(--surface);font-size:0.78rem;`;
-      const typeColor = spk.type === "real" ? "#06b6d4" : "#8b5cf6";
-      chip.innerHTML = `
-        <span style="width:8px;height:8px;border-radius:50%;background:${typeColor};flex-shrink:0"></span>
-        <span style="color:var(--text);font-weight:600;">${spk.name}</span>
-        <span style="color:var(--text-3);">${spk.type === "real" ? "Real" : "TTS"}</span>
-        <button onclick="deleteSpeaker('${spk.name}', this.parentElement)"
-          style="background:none;border:none;color:var(--text-3);cursor:pointer;font-size:0.85rem;padding:0 0.1rem;"
-          title="Remove">x</button>`;
-      container.appendChild(chip);
-    });
-    if (!data.speakers?.length) {
-      container.innerHTML = '<span style="color:var(--text-3);font-size:0.8rem;">No speakers enrolled yet.</span>';
-    }
-  } catch(e) { console.error(e); }
-}
-
-async function deleteSpeaker(name, chipEl) {
-  if (!confirm(`Remove speaker "${name}"?`)) return;
-  try {
-    const res = await fetch(`/speakers/${encodeURIComponent(name)}`, { method: "DELETE" });
-    if (res.ok) chipEl.remove();
-    else alert("Could not delete speaker.");
-  } catch(e) { alert(e.message); }
-}
-
-// ── Test voice identity ──
-async function testVoice() {
-  const input = document.getElementById("testVoiceFile");
-  if (!input.files.length) { alert("Please select an audio file to test."); return; }
-  const resultEl = document.getElementById("voiceTestResult");
-  resultEl.classList.remove("hidden");
-  resultEl.innerHTML = '<span style="color:var(--text-2);font-size:0.82rem;">Identifying…</span>';
-
-  const fd = new FormData();
-  fd.append("file", input.files[0]);
-
-  try {
-    const res  = await fetch("/identify_voice", { method: "POST", body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Server error");
-
-    const conf   = (parseFloat(data.confidence) * 100).toFixed(1);
-    const isUnk  = data.identified_speaker === "Unknown";
-    const color  = isUnk ? "#f87171" : "#6ee7b7";
-
-    // Build similarity bars
-    const simRows = Object.entries(data.all_similarities || {})
-      .sort((a, b) => b[1] - a[1])
-      .map(([spk, sim]) => {
-        const pct = Math.max(0, Math.min(100, sim * 100 / 0.8 * 100));
-        return `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.35rem;">
-          <span style="min-width:60px;font-size:0.78rem;color:var(--text-2);">${spk}</span>
-          <div style="flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;">
-            <div style="height:100%;width:${Math.abs(sim)*150}%;background:linear-gradient(90deg,var(--violet),var(--cyan));border-radius:3px;transition:width 0.4s;"></div>
-          </div>
-          <span style="font-size:0.72rem;font-family:monospace;color:var(--text-3);min-width:42px;">${sim.toFixed(3)}</span>
-        </div>`;
-      }).join("");
-
-    resultEl.innerHTML = `
-      <div style="padding:0.85rem 1rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;">
-        <div style="font-size:1.1rem;font-weight:700;color:${color};margin-bottom:0.3rem;">
-          ${isUnk ? "Unknown Speaker" : data.identified_speaker}
-        </div>
-        <div style="font-size:0.78rem;color:var(--text-2);margin-bottom:0.85rem;">
-          Confidence: ${conf}% ${data.fallback ? "(fallback mode)" : ""}
-        </div>
-        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3);margin-bottom:0.5rem;">
-          Similarity vs all enrolled speakers
-        </div>
-        ${simRows}
-      </div>`;
-  } catch(e) {
-    resultEl.innerHTML = `<span style="color:#f87171;font-size:0.82rem;">Error: ${e.message}</span>`;
+    const data = await MUA.api('/speakers');
+    $('speakerList').innerHTML =
+      (data.speakers || [])
+        .map(
+          (p) =>
+            '<div class="speaker-row"><div class="avatar">' +
+            e(p.name[0].toUpperCase()) +
+            '</div><div><h3>' +
+            e(p.name) +
+            '</h3><p>' +
+            (p.type === 'real' ? 'Enrolled voice' : 'Demo voice') +
+            (p.fallback ? ' / fallback embedding' : '') +
+            '</p></div><button class="icon-btn" data-delete="' +
+            e(p.name) +
+            '" aria-label="Remove ' +
+            e(p.name) +
+            '">' +
+            MUA.icon('trash') +
+            '</button></div>',
+        )
+        .join('') ||
+      '<p class="small muted">No voices enrolled yet. Add your first voice here.</p>';
+  } catch (error) {
+    $('speakerList').textContent = error.message;
   }
 }
-
-// ── Custom file label updater ──
-function updateFileLabel(input, labelId) {
-  const el = document.getElementById(labelId);
-  if (!el) return;
-  if (!input.files.length) {
-    el.textContent = 'No files chosen';
-    el.classList.remove('has-file');
-  } else if (input.files.length === 1) {
-    el.textContent = input.files[0].name;
-    el.classList.add('has-file');
-  } else {
-    el.textContent = `${input.files.length} files selected`;
-    el.classList.add('has-file');
-  }
+function route() {
+  const people = location.hash === '#people';
+  $('studioView').hidden = people;
+  $('peopleView').hidden = !people;
+  $('breadcrumb').textContent = people ? 'People' : 'Voice studio';
+  document
+    .querySelectorAll('[data-nav]')
+    .forEach((el) =>
+      el.classList.toggle('active', el.dataset.nav === (people ? 'people' : 'studio')),
+    );
+  document.title = (people ? 'People' : 'Voice studio') + ' | MUA';
+  if (people) loadSpeakers();
 }
-
-// ── Init ──
-// ── Load separation model download status on page init ──
-async function loadSepModelStatus() {
-  try {
-    const data = await (await fetch("/api/separation_models")).json();
-    data.forEach(m => {
-      const btn = document.querySelector(`#g-sep-model .pill[data-v="${m.id}"]`);
-      if (!btn) return;
-      if (!m.downloaded) {
-        btn.title += " (not downloaded — will download on first use)";
-        btn.style.opacity = "0.6";
-      } else {
-        btn.title += " (Downloaded)";
+document.addEventListener('DOMContentLoaded', async () => {
+  document.querySelectorAll('.segmented').forEach((group) => {
+    group.setAttribute(
+      'aria-label',
+      group.closest('.control')?.querySelector('.control-label')?.textContent || 'Session option',
+    );
+    group.addEventListener('click', (event) => {
+      const btn = event.target.closest('.pill');
+      if (!btn || btn.disabled) return;
+      group.querySelectorAll('.pill').forEach((el) => {
+        el.classList.toggle('active', el === btn);
+        el.setAttribute('aria-pressed', el === btn);
+      });
+      if (group.id === 'g-speakers') buildCommands();
+      if (group.id === 'g-oracle') {
+        $('row-sep-model').hidden = btn.dataset.v === 'true';
+        $('oracleHelp').hidden = btn.dataset.v !== 'true';
       }
     });
-  } catch (_) { /* ignore — server may still be starting */ }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  buildCmdGrid();
-  loadSpeakerList();
-  loadSepModelStatus();
-  toggleSepModel();   // set initial opacity based on default oracle=false
+  });
+  document
+    .querySelectorAll('[data-source]')
+    .forEach((btn) => btn.addEventListener('click', () => updateSource(btn.dataset.source)));
+  $('generateBtn').addEventListener('click', () => session('preview'));
+  $('runBtn').addEventListener('click', () => session('run'));
+  $('fileInput').addEventListener('change', (event) => chooseFile(event.target.files[0]));
+  $('dropzone').addEventListener('click', () => $('fileInput').click());
+  $('dropzone').addEventListener('dragover', (event) => {
+    event.preventDefault();
+    $('dropzone').classList.add('dragging');
+  });
+  $('dropzone').addEventListener('dragleave', () => $('dropzone').classList.remove('dragging'));
+  $('dropzone').addEventListener('drop', (event) => {
+    event.preventDefault();
+    $('dropzone').classList.remove('dragging');
+    chooseFile(event.dataTransfer.files[0]);
+  });
+  $('exportBtn').addEventListener('click', () => {
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }),
+    );
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'mua-session.json';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  $('enrollForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const files = $('enrollFiles').files;
+    if (files.length > 5) return MUA.notify('Choose up to 5 recordings.', true);
+    const btn = event.submitter;
+    btn.disabled = true;
+    btn.textContent = 'Learning voice…';
+    try {
+      const fd = new FormData();
+      fd.append('name', $('enrollName').value.trim());
+      for (const file of files) fd.append('files', file);
+      await MUA.api('/enroll_speaker', { method: 'POST', body: fd });
+      MUA.notify('Voice enrolled.');
+      event.target.reset();
+      await loadSpeakers();
+    } catch (error) {
+      MUA.notify(error.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Enroll voice';
+    }
+  });
+  $('testForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const btn = event.submitter;
+    btn.disabled = true;
+    try {
+      const fd = new FormData();
+      fd.append('file', $('testVoiceFile').files[0]);
+      const d = await MUA.api('/identify_voice', { method: 'POST', body: fd });
+      $('voiceTestResult').hidden = false;
+      $('voiceTestResult').textContent =
+        (d.identified_speaker || 'Unknown') +
+        ' / ' +
+        (Number(d.confidence || 0) * 100).toFixed(1) +
+        '% match';
+    } catch (error) {
+      MUA.notify(error.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  let deleteName = '';
+  $('speakerList').addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-delete]');
+    if (!btn) return;
+    deleteName = btn.dataset.delete;
+    $('deleteDescription').textContent = 'MUA will stop matching recordings to ' + deleteName + '.';
+    $('deleteDialog').showModal();
+  });
+  $('cancelDelete').addEventListener('click', () => $('deleteDialog').close());
+  $('confirmDelete').addEventListener('click', async () => {
+    try {
+      await MUA.api('/speakers/' + encodeURIComponent(deleteName), { method: 'DELETE' });
+      $('deleteDialog').close();
+      await loadSpeakers();
+      MUA.notify('Voice removed.');
+    } catch (error) {
+      MUA.notify(error.message, true);
+    }
+  });
+  $('refreshPeople').addEventListener('click', loadSpeakers);
+  window.addEventListener('hashchange', route);
+  route();
+  try {
+    commands = await MUA.api('/commands');
+    buildCommands();
+  } catch (error) {
+    MUA.notify(error.message, true);
+    $('runBtn').disabled = true;
+  }
 });

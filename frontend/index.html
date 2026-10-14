@@ -1,237 +1,356 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Multi-User Smart Assistant</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-
-<div class="mesh-bg"><div class="mesh-orb"></div></div>
-
-<div class="app-wrap">
-
-  <!-- Header -->
-  <header class="site-header">
-    <div class="header-icon">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-        <line x1="12" y1="19" x2="12" y2="22"/>
-      </svg>
-    </div>
-    <div>
-      <div class="header-title">Multi-User Smart Assistant</div>
-      <div class="header-sub">Voice Sep &middot; Speaker ID &middot; Intent &middot; Response</div>
-    </div>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:0.75rem;">
-      <a href="/profiles-page" class="btn btn-ghost" style="width:auto;padding:0.38rem 0.9rem;font-size:0.77rem;text-decoration:none;">Profiles</a>
-      <div class="header-badge">
-        <span class="dot-live"></span>
-        Prototype Ready
-      </div>
-    </div>
-  </header>
-
-  <main>
-
-    <!-- Page intro -->
-    <div class="page-intro">
-      <div>
-        <div class="intro-title">Multi-Speaker AI Pipeline</div>
-        <div class="intro-sub">Separate voices &rarr; Identify speakers &rarr; Recognize intent &rarr; Generate response</div>
-      </div>
-      <div class="intro-pills">
-        <span class="intro-pill">SepFormer</span>
-        <span class="intro-pill">ECAPA-TDNN</span>
-        <span class="intro-pill">Whisper large-v3</span>
-        <span class="intro-pill">Llama 3.2 3B</span>
-      </div>
-    </div>
-
-    <!-- Status bar -->
-    <div id="statusBar" class="status-bar hidden">
-      <div class="spinner"></div>
-      <span id="statusText">Processing…</span>
-    </div>
-
-    <!-- Top: Config + Actions -->
-    <div class="top-grid">
-
-      <!-- Config card -->
-      <div class="card">
-        <div class="card-title">Pipeline Configuration</div>
-
-        <div class="controls-list">
-          <div class="ctrl-row">
-            <span class="ctrl-label">Speakers</span>
-            <div class="pill-row" id="g-speakers">
-              <button class="pill active" data-v="2" onclick="pick(this,'g-speakers')">2 Speakers</button>
-              <button class="pill"        data-v="3" onclick="pick(this,'g-speakers')">3 Speakers</button>
-            </div>
-          </div>
-          <div class="ctrl-row">
-            <span class="ctrl-label">Overlap</span>
-            <div class="pill-row" id="g-overlap">
-              <button class="pill"        data-v="full"    onclick="pick(this,'g-overlap')">Full</button>
-              <button class="pill active" data-v="partial" onclick="pick(this,'g-overlap')">Partial</button>
-              <button class="pill"        data-v="none"    onclick="pick(this,'g-overlap')">Sequential</button>
-            </div>
-          </div>
-          <div class="ctrl-row">
-            <span class="ctrl-label">Noise Level</span>
-            <div class="pill-row" id="g-noise">
-              <button class="pill active" data-v="none"   onclick="pick(this,'g-noise')">None</button>
-              <button class="pill"        data-v="low"    onclick="pick(this,'g-noise')">Low</button>
-              <button class="pill"        data-v="medium" onclick="pick(this,'g-noise')">Medium</button>
-              <button class="pill"        data-v="high"   onclick="pick(this,'g-noise')">High</button>
-            </div>
-          </div>
-          <div class="ctrl-row">
-            <span class="ctrl-label">Noise Type</span>
-            <div class="pill-row" id="g-ntype">
-              <button class="pill active" data-v="white" onclick="pick(this,'g-ntype')">White</button>
-              <button class="pill"        data-v="fan"   onclick="pick(this,'g-ntype')">Fan</button>
-            </div>
-          </div>
-          <div class="ctrl-row">
-            <span class="ctrl-label">Separation</span>
-            <div class="pill-row" id="g-oracle">
-              <button class="pill active" data-v="false" onclick="pick(this,'g-oracle');toggleSepModel()" title="Uses a pretrained SepFormer model — actually separates voices">Real Model</button>
-              <button class="pill"        data-v="true"  onclick="pick(this,'g-oracle');toggleSepModel()" title="Skips separation — copies pre-generated clean TTS sources directly">Oracle (Cheat)</button>
-            </div>
-          </div>
-          <div class="ctrl-row" id="row-sep-model">
-            <span class="ctrl-label">Sep Model</span>
-            <div class="pill-row" id="g-sep-model">
-              <button class="pill active" data-v="sepformer_whamr16k"  onclick="pick(this,'g-sep-model')" title="Native 16 kHz | robust to reverb &amp; noise | recommended">WHAMR 16K</button>
-              <button class="pill"        data-v="sepformer_libri2mix" onclick="pick(this,'g-sep-model')" title="8 kHz | trained on 2000+ LibriSpeech speakers | clean speech">LibriMix</button>
-            </div>
-          </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="MUA local multi-user voice assistant workspace" />
+    <title>Voice studio | MUA</title>
+    <link rel="icon" href="/assets/icons/waveform.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/common.js" defer></script>
+    <script src="/script.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="app-shell">
+      <aside class="rail">
+        <a class="brand" href="/"
+          ><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span
+          >MUA</a
+        >
+        <div class="rail-label eyebrow">Your assistant</div>
+        <nav aria-label="Main navigation">
+          <a class="nav-link active" href="/" data-nav="studio"
+            ><span class="icon" data-icon="waveform" aria-hidden="true"></span>Voice studio</a
+          ><a class="nav-link" href="/#people" data-nav="people"
+            ><span class="icon" data-icon="users" aria-hidden="true"></span>People</a
+          ><a class="nav-link" href="/profiles-page" data-nav="workspaces"
+            ><span class="icon" data-icon="squares-four" aria-hidden="true"></span>Workspaces</a
+          ><a class="nav-link" href="/models-page" data-nav="models"
+            ><span class="icon" data-icon="sliders-horizontal" aria-hidden="true"></span>Model
+            settings</a
+          >
+        </nav>
+        <div class="rail-bottom">
+          <div class="local-chip">Runs on your device</div>
+          <p>Multi-user smart assistant<br />A shared space, a personal response.</p>
         </div>
-
-        <!-- Command picker -->
-        <div class="cmd-section">
-          <div class="card-title" style="margin-bottom:0.85rem;">Speaker Commands</div>
-          <div class="cmd-grid" id="cmdGrid"></div>
-        </div>
-      </div>
-
-      <!-- Actions sidebar -->
-      <div class="card actions-card">
-        <div class="card-title">Actions</div>
-
-        <div class="action-group-label">Demo</div>
-        <button class="btn btn-primary" onclick="generateDemo()">
-          Generate Demo Audio
-        </button>
-        <button class="btn btn-accent" onclick="processDemo()">
-          Process Demo Audio
-        </button>
-
-        <div class="btn-divider"></div>
-
-        <div class="action-group-label">Your Audio</div>
-        <input type="file" id="fileInput" accept="audio/*" style="display:none" onchange="onFileChosen(this)" />
-        <button class="btn btn-ghost" onclick="document.getElementById('fileInput').click()">
-          Upload Audio
-        </button>
-        <div id="uploadedName" class="hidden uploaded-name"></div>
-        <button class="btn btn-ghost" id="btnProcess" onclick="processUpload()" disabled>
-          Process Uploaded Audio
-        </button>
-      </div>
-
-    </div>
-
-    <!-- Mixed audio preview -->
-    <div class="card hidden" id="mixedSection">
-      <div class="card-title">Mixed Audio Preview</div>
-      <div class="mixed-audio-wrap">
-        <audio id="mixedPlayer" controls></audio>
-        <div class="gt-chips" id="gtChips"></div>
-      </div>
-    </div>
-
-    <!-- Enroll Real Speaker -->
-    <div class="card" id="enrollSection">
-      <div class="card-title">Enroll a Real Speaker</div>
-
-      <p class="enroll-desc">
-        Record yourself saying 3–5 sentences, upload the files, and the system will learn your voice.
-        After enrolling, any audio you upload will be matched against your voiceprint.
-      </p>
-
-      <div class="enroll-form">
-        <div class="enroll-field grow">
-          <div class="enroll-label">Your Name</div>
-          <input id="enrollName" type="text" placeholder="e.g. Arjun" class="text-input" />
-        </div>
-        <div class="enroll-field grow2">
-          <div class="enroll-label">Voice Samples (1–5 WAV / MP3 files)</div>
-          <input type="file" id="enrollFiles" accept="audio/*" multiple style="display:none"
-            onchange="updateFileLabel(this,'enrollFilesLabel')" />
-          <div class="file-pick-row">
-            <button class="btn-file" onclick="document.getElementById('enrollFiles').click()">Choose Files</button>
-            <span class="file-pick-label" id="enrollFilesLabel">No files chosen</span>
+      </aside>
+      <div class="workspace">
+        <header class="topbar">
+          <div class="breadcrumb">
+            Workspace <span>/</span><strong id="breadcrumb">Voice studio</strong>
           </div>
-        </div>
-        <button class="btn btn-primary" style="width:auto;padding:0.6rem 1.4rem;flex-shrink:0;" onclick="enrollSpeaker()">
-          Enroll Speaker
-        </button>
-      </div>
-
-      <div id="enrollStatus" class="hidden" style="font-size:0.81rem;padding:0.55rem 0.9rem;border-radius:6px;margin-bottom:0.75rem;"></div>
-
-      <div class="enrolled-list-label">Currently Enrolled</div>
-      <div id="speakerList" style="display:flex;flex-wrap:wrap;gap:0.55rem;"></div>
-
-      <!-- Test your voice -->
-      <div class="voice-test-section">
-        <div class="card-title">Test — Who Is Speaking?</div>
-        <p class="voice-test-desc">
-          Upload a single audio clip and see which enrolled speaker the system identifies.
-        </p>
-        <div class="voice-test-row">
-          <input type="file" id="testVoiceFile" accept="audio/*" style="display:none"
-            onchange="updateFileLabel(this,'testVoiceLabel')" />
-          <div class="file-pick-row" style="flex:1;">
-            <button class="btn-file" onclick="document.getElementById('testVoiceFile').click()">Choose File</button>
-            <span class="file-pick-label" id="testVoiceLabel">No file chosen</span>
+          <div class="top-actions">
+            <span class="top-status" data-model-label>Checking model…</span
+            ><button class="icon-btn" data-theme-toggle aria-label="Change theme"></button>
           </div>
-          <button class="btn btn-ghost" style="width:auto;padding:0.5rem 1.1rem;flex-shrink:0;" onclick="testVoice()">
-            Identify Speaker
-          </button>
-        </div>
-        <div id="voiceTestResult" class="hidden" style="margin-top:0.9rem;"></div>
+        </header>
+        <main class="content" id="main">
+          <section id="studioView">
+            <div class="page-heading">
+              <div>
+                <div class="eyebrow">Listen. Separate. Understand.</div>
+                <h1>Every voice, understood.</h1>
+                <p>Turn a shared conversation into individual, personal responses.</p>
+              </div>
+              <a class="btn" href="/#people"
+                ><span class="icon" data-icon="plus" aria-hidden="true"></span>Add a voice</a
+              >
+            </div>
+            <div class="status-bar hidden" id="statusBar" role="status">
+              <span class="spinner"></span><span id="statusText"></span>
+            </div>
+            <div class="studio-grid">
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Start a session</h2>
+                    <p>Try a sample conversation or bring your own audio.</p>
+                  </div>
+                  <span class="tag">Audio input</span>
+                </div>
+                <div class="panel-body">
+                  <div class="source-tabs" role="tablist" aria-label="Audio source">
+                    <button
+                      class="source-tab active"
+                      role="tab"
+                      aria-selected="true"
+                      aria-controls="demoSource"
+                      id="demoTab"
+                      data-source="demo"
+                    >
+                      Demo conversation</button
+                    ><button
+                      class="source-tab"
+                      role="tab"
+                      aria-selected="false"
+                      aria-controls="uploadSource"
+                      id="uploadTab"
+                      data-source="upload"
+                    >
+                      Upload audio
+                    </button>
+                  </div>
+                  <div class="control">
+                    <span class="control-label">People speaking</span>
+                    <div class="segmented" id="g-speakers" role="group">
+                      <button class="pill active" data-v="2" aria-pressed="true">2 people</button
+                      ><button class="pill" data-v="3" aria-pressed="false">3 people</button>
+                    </div>
+                  </div>
+                  <div id="demoSource" role="tabpanel" aria-labelledby="demoTab">
+                    <div class="commands" id="cmdGrid"></div>
+                    <button class="btn" id="generateBtn">
+                      <span class="icon" data-icon="play" aria-hidden="true"></span>Preview
+                      conversation
+                    </button>
+                  </div>
+                  <div id="uploadSource" role="tabpanel" aria-labelledby="uploadTab" hidden>
+                    <input id="fileInput" type="file" accept="audio/*" hidden /><button
+                      class="dropzone"
+                      id="dropzone"
+                    >
+                      <span class="icon" data-icon="upload-simple" aria-hidden="true"></span
+                      ><strong>Choose an audio file</strong
+                      ><span>Drop a recording here, or browse your device.</span
+                      ><span>WAV, MP3, FLAC, OGG, M4A</span>
+                    </button>
+                    <div id="fileSummary" class="file-summary" hidden></div>
+                  </div>
+                  <div class="audio-preview" id="mixedSection" hidden>
+                    <p id="previewLabel">Conversation preview</p>
+                    <audio id="mixedPlayer" controls preload="metadata"></audio>
+                  </div>
+                  <details class="advanced">
+                    <summary>Session configuration</summary>
+                    <div class="controls">
+                      <div class="control">
+                        <span class="control-label">Separation</span>
+                        <div class="segmented" id="g-oracle" role="group">
+                          <button class="pill active" data-v="false" aria-pressed="true">
+                            Real model</button
+                          ><button class="pill" data-v="true" aria-pressed="false">
+                            Reference demo
+                          </button>
+                        </div>
+                      </div>
+                      <p class="small muted" id="oracleHelp" hidden>
+                        Reference demo uses known clean source audio. It does not test real
+                        separation.
+                      </p>
+                      <div class="control" id="row-sep-model">
+                        <label class="control-label" for="sepModel">Speech model</label
+                        ><select id="sepModel">
+                          <option value="sepformer_whamr16k">SepFormer WHAMR 16K</option>
+                          <option value="sepformer_libri2mix">SepFormer LibriMix</option>
+                        </select>
+                      </div>
+                      <div id="demoControls">
+                        <div class="control">
+                          <span class="control-label">Voice overlap</span>
+                          <div class="segmented" id="g-overlap" role="group">
+                            <button class="pill" data-v="none" aria-pressed="false">
+                              Sequential</button
+                            ><button class="pill active" data-v="partial" aria-pressed="true">
+                              Partial</button
+                            ><button class="pill" data-v="full" aria-pressed="false">Full</button>
+                          </div>
+                        </div>
+                        <div class="control">
+                          <span class="control-label">Background noise</span>
+                          <div class="segmented" id="g-noise" role="group">
+                            <button class="pill active" data-v="none" aria-pressed="true">
+                              None</button
+                            ><button class="pill" data-v="low" aria-pressed="false">Low</button
+                            ><button class="pill" data-v="medium" aria-pressed="false">
+                              Medium</button
+                            ><button class="pill" data-v="high" aria-pressed="false">High</button>
+                          </div>
+                        </div>
+                        <div class="control">
+                          <span class="control-label">Noise source</span>
+                          <div class="segmented" id="g-ntype" role="group">
+                            <button class="pill active" data-v="white" aria-pressed="true">
+                              White noise</button
+                            ><button class="pill" data-v="fan" aria-pressed="false">Fan</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                  <div class="action-footer">
+                    <span class="processing-note"
+                      >Models may need to download on the first run.</span
+                    ><button class="btn btn-primary" id="runBtn">
+                      <span class="icon" data-icon="waveform" aria-hidden="true"></span>Run
+                      conversation
+                    </button>
+                  </div>
+                </div>
+              </section>
+              <aside class="panel">
+                <div class="panel-body">
+                  <div class="eyebrow">Inside a session</div>
+                  <h2 style="margin-top: 10px">One room.<br />Separate conversations.</h2>
+                  <div class="pipeline-list">
+                    <div class="pipeline-item">
+                      <span class="icon" data-icon="waveform" aria-hidden="true"></span>
+                      <div>
+                        <h3>Separate the voices</h3>
+                        <p>Split overlapping speech into an audio stream for each person.</p>
+                      </div>
+                    </div>
+                    <div class="pipeline-item">
+                      <span class="icon" data-icon="users" aria-hidden="true"></span>
+                      <div>
+                        <h3>Recognize the speaker</h3>
+                        <p>Match each voice to an enrolled person and their workspace.</p>
+                      </div>
+                    </div>
+                    <div class="pipeline-item">
+                      <span class="icon" data-icon="chat-circle" aria-hidden="true"></span>
+                      <div>
+                        <h3>Understand the request</h3>
+                        <p>Transcribe the speech and identify what each person needs.</p>
+                      </div>
+                    </div>
+                    <div class="pipeline-item">
+                      <span class="icon" data-icon="cpu" aria-hidden="true"></span>
+                      <div>
+                        <h3>Respond personally</h3>
+                        <p>Use their profile and your selected model to answer.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="pipeline-note">
+                    Local LLM inference is available with Ollama. Demo voice generation uses
+                    Microsoft’s online TTS service.
+                  </div>
+                </div>
+              </aside>
+            </div>
+            <section class="result-area">
+              <div class="section-heading">
+                <h2>Session results</h2>
+                <button class="btn btn-quiet" id="exportBtn" hidden>
+                  <span class="icon" data-icon="download-simple" aria-hidden="true"></span>Export
+                  report
+                </button>
+              </div>
+              <div class="empty-state" id="resultsEmpty">
+                <span class="icon" data-icon="waveform" aria-hidden="true"></span>
+                <h3>A place for every voice</h3>
+                <p>
+                  Run a conversation to see speaker matches, transcripts, and personal responses
+                  here.
+                </p>
+              </div>
+              <div class="results-grid" id="resultsGrid"></div>
+              <p class="warning" id="separationNote" hidden></p>
+              <div class="panel metrics-grid" id="metricsStrip" hidden></div>
+            </section>
+          </section>
+          <section id="peopleView" hidden>
+            <div class="page-heading">
+              <div>
+                <div class="eyebrow">Personal by voice</div>
+                <h1>The people in your space.</h1>
+                <p>Enroll a voice so MUA can connect a speaker to their workspace.</p>
+              </div>
+              <a class="btn" href="/profiles-page"
+                >Open workspaces<span
+                  class="icon"
+                  data-icon="arrow-up-right"
+                  aria-hidden="true"
+                ></span
+              ></a>
+            </div>
+            <div class="people-grid">
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <h2>Add a voice</h2>
+                    <p>Use 1 to 5 clear recordings of the same person.</p>
+                  </div>
+                </div>
+                <form class="panel-body" id="enrollForm">
+                  <label class="field"
+                    >Person’s name<input
+                      id="enrollName"
+                      required
+                      maxlength="60"
+                      placeholder="e.g. Mohit" /></label
+                  ><label class="field"
+                    >Voice recordings<input
+                      type="file"
+                      id="enrollFiles"
+                      accept="audio/*"
+                      multiple
+                      required
+                  /></label>
+                  <p class="small muted">
+                    Speak naturally for a few sentences per recording. A quieter room gives a better
+                    voice match.
+                  </p>
+                  <div class="action-footer">
+                    <span class="small muted">Voice samples stay on this device.</span
+                    ><button class="btn btn-primary" type="submit">Enroll voice</button>
+                  </div>
+                </form>
+              </section>
+              <div class="stack">
+                <section class="panel">
+                  <div class="panel-head">
+                    <h2>Enrolled voices</h2>
+                    <button class="icon-btn" id="refreshPeople" aria-label="Refresh voices">
+                      <span class="icon" data-icon="arrow-clockwise" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <div class="panel-body speaker-list" id="speakerList">
+                    <p class="muted small">Loading voices…</p>
+                  </div>
+                </section>
+                <section class="panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Check a voice match</h2>
+                      <p>Identify the person in a single-speaker clip.</p>
+                    </div>
+                  </div>
+                  <form class="panel-body" id="testForm">
+                    <label class="field"
+                      >Audio recording<input
+                        type="file"
+                        id="testVoiceFile"
+                        accept="audio/*"
+                        required /></label
+                    ><button class="btn" type="submit">
+                      Identify speaker<span
+                        class="icon"
+                        data-icon="arrow-right"
+                        aria-hidden="true"
+                      ></span>
+                    </button>
+                    <div id="voiceTestResult" class="runtime-status" hidden></div>
+                  </form>
+                </section>
+              </div>
+            </div>
+          </section>
+          <dialog id="deleteDialog">
+            <h2>Remove this voice?</h2>
+            <p class="muted" id="deleteDescription"></p>
+            <div class="dialog-actions">
+              <button class="btn" id="cancelDelete">Keep voice</button
+              ><button class="btn btn-danger" id="confirmDelete">Remove voice</button>
+            </div>
+          </dialog>
+          <p class="footer-note">
+            MUA research prototype. Smart-home states are simulated in your personal workspace.
+          </p>
+        </main>
       </div>
     </div>
-
-    <!-- Results -->
-    <div class="card hidden" id="resultsSection">
-      <div class="card-title">Speaker Results</div>
-      <div class="results-grid" id="resultsGrid"></div>
-    </div>
-
-    <!-- Metrics -->
-    <div class="card hidden" id="metricsSection">
-      <div class="card-title">Performance Metrics</div>
-      <div class="metrics-strip" id="metricsStrip"></div>
-    </div>
-
-  </main>
-
-  <footer>
-    Real-Time Multi-User Smart Assistant &nbsp;&middot;&nbsp; Prototype &nbsp;&middot;&nbsp;
-    edge-tts &nbsp;&middot;&nbsp; faster-whisper &nbsp;&middot;&nbsp; SpeechBrain
-  </footer>
-
-</div><!-- /app-wrap -->
-
-<script src="script.js"></script>
-</body>
+  </body>
 </html>

@@ -1,0 +1,53 @@
+{
+  "name": "mua-desktop",
+  "version": "0.2.0",
+  "private": true,
+  "author": "IntrosWorld",
+  "description": "MUA multi-user voice assistant desktop workspace",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "desktop:pack": "electron-builder --dir",
+    "desktop:dist": "electron-builder --win portable",
+    "assets": "node scripts/copy-assets.cjs",
+    "test:ui": "node tests/ui-smoke.cjs",
+    "test:desktop": "node tests/desktop-smoke.cjs"
+  },
+  "devDependencies": {
+    "@fontsource/geist": "^5.2.0",
+    "@phosphor-icons/core": "^2.1.1",
+    "electron": "44.7.2",
+    "electron-builder": "^26.0.12",
+    "lighthouse": "^13.0.0",
+    "playwright": "^1.56.0",
+    "prettier": "^3.9.10"
+  },
+  "build": {
+    "appId": "world.intros.mua",
+    "productName": "MUA",
+    "directories": {
+      "output": "desktop-dist"
+    },
+    "files": [
+      "desktop/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".",
+        "to": "backend",
+        "filter": [
+          "app.py",
+          "src/**",
+          "frontend/**",
+          "requirements.txt",
+          "!**/__pycache__/**"
+        ]
+      }
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "desktop/icon.ico"
+    }
+  }
+}

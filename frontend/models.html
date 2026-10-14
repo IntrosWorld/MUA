@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="description" content="MUA local multi-user voice assistant workspace" />
+    <title>Model settings | MUA</title>
+    <link rel="icon" href="/assets/icons/waveform.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/common.js" defer></script>
+    <script src="/models.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="app-shell">
+      <aside class="rail">
+        <a class="brand" href="/"
+          ><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span
+          >MUA</a
+        >
+        <div class="rail-label eyebrow">Your assistant</div>
+        <nav aria-label="Main navigation">
+          <a class="nav-link" href="/" data-nav="studio"
+            ><span class="icon" data-icon="waveform" aria-hidden="true"></span>Voice studio</a
+          ><a class="nav-link" href="/#people" data-nav="people"
+            ><span class="icon" data-icon="users" aria-hidden="true"></span>People</a
+          ><a class="nav-link" href="/profiles-page" data-nav="workspaces"
+            ><span class="icon" data-icon="squares-four" aria-hidden="true"></span>Workspaces</a
+          ><a class="nav-link active" href="/models-page" data-nav="models"
+            ><span class="icon" data-icon="sliders-horizontal" aria-hidden="true"></span>Model
+            settings</a
+          >
+        </nav>
+        <div class="rail-bottom">
+          <div class="local-chip">Runs on your device</div>
+          <p>Multi-user smart assistant<br />A shared space, a personal response.</p>
+        </div>
+      </aside>
+      <div class="workspace">
+        <header class="topbar">
+          <div class="breadcrumb">
+            Workspace <span>/</span><strong id="breadcrumb">Model settings</strong>
+          </div>
+          <div class="top-actions">
+            <span class="top-status" data-model-label>Checking model…</span
+            ><button class="icon-btn" data-theme-toggle aria-label="Change theme"></button>
+          </div>
+        </header>
+        <main class="content" id="main">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow">Intelligence, on your terms</div>
+              <h1>Make it local.</h1>
+              <p>Connect the model that runs on your device.</p>
+            </div>
+            <a class="btn" href="/profiles-page"
+              >Try a conversation<span
+                class="icon"
+                data-icon="arrow-up-right"
+                aria-hidden="true"
+              ></span
+            ></a>
+          </div>
+          <div class="settings-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Response engine</h2>
+                  <p>Used for workspace chat and voice-session responses.</p>
+                </div>
+                <span class="icon" data-icon="cpu" aria-hidden="true"></span>
+              </div>
+              <form class="panel-body" id="modelForm">
+                <label class="field"
+                  >Provider<select id="provider">
+                    <option value="ollama">Ollama / local models</option>
+                    <option value="local-api">Local API / LM Studio, llama.cpp</option>
+                    <option value="offline">Local model weights / legacy</option>
+                    <option value="gemini">Gemini / cloud API</option>
+                  </select></label
+                >
+                <div id="localFields">
+                  <label class="field"
+                    >Runtime address<input
+                      id="runtimeUrl"
+                      type="url"
+                      required
+                      placeholder="http://127.0.0.1:11434"
+                  /></label>
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                      margin-bottom: 8px;
+                    "
+                  >
+                    <label for="modelSelect" class="small">Installed model</label
+                    ><button class="btn btn-quiet" type="button" id="refreshModels">
+                      <span class="icon" data-icon="arrow-clockwise" aria-hidden="true"></span
+                      >Refresh models
+                    </button>
+                  </div>
+                  <select id="modelSelect" required>
+                    <option value="">Choose a model</option>
+                  </select>
+                  <div class="runtime-status" id="runtimeStatus" role="status">
+                    Checking your local runtime…
+                  </div>
+                  <div id="availableModels" class="model-list"></div>
+                </div>
+                <div id="legacyFields" hidden>
+                  <p class="small muted">
+                    Uses existing Llama 3.2 weights under models/llama-3.2-3b, with OpenVINO weights
+                    when available. This provider does not download weights automatically.
+                  </p>
+                </div>
+                <div id="cloudFields" hidden>
+                  <label class="field"
+                    >Gemini API key<input
+                      id="geminiKey"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="Enter a key to update it"
+                  /></label>
+                  <p class="small muted">
+                    Cloud requests send the active person’s profile context to Gemini.
+                  </p>
+                </div>
+                <div class="action-footer">
+                  <span class="small muted" id="saveHint">Changes apply after saving.</span
+                  ><button class="btn btn-primary" type="submit" id="saveModels">
+                    Save configuration
+                  </button>
+                </div>
+              </form>
+            </section>
+            <aside class="panel prose">
+              <div class="panel-body">
+                <div class="eyebrow">Quick setup</div>
+                <h2 style="margin-top: 10px">Bring your own model.</h2>
+                <h3>Ollama</h3>
+                <p>
+                  Install Ollama and start its local server. Pull a model in your terminal, then
+                  refresh the list.
+                </p>
+                <code>ollama pull llama3.2:3b</code>
+                <h3>LM Studio or llama.cpp</h3>
+                <p>
+                  Start an OpenAI-compatible local server. Set its API address, including the /v1
+                  path, and choose a loaded model.
+                </p>
+                <code>http://127.0.0.1:1234/v1</code>
+                <h3>Where your data goes</h3>
+                <p>
+                  Ollama and Local API accept localhost addresses only. Your chat and profile
+                  context are sent to that runtime. Gemini is an optional cloud provider.
+                </p>
+                <p>
+                  Voice synthesis uses online TTS. Speech models may download on their first run.
+                  Smart-home controls currently update simulated device states.
+                </p>
+              </div>
+            </aside>
+          </div>
+          <p class="footer-note">
+            MUA research prototype. Smart-home states are simulated in your personal workspace.
+          </p>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

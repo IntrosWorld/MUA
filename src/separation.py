@@ -24,7 +24,7 @@ import numpy as np
 import soundfile as sf
 from . import utils as _utils   # activates Windows symlink patch
 
-BASE_DIR    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR    = os.environ.get("MUA_DATA_DIR", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs", "separated")
 SEP_MODELS  = os.path.join(BASE_DIR, "models")
 OUTPUT_SR   = 16000

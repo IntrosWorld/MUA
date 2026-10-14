@@ -1,166 +1,85 @@
-# Real-Time Multi-User Smart Assistant for Dynamic and Noisy Smart Environments
+# MUA: Multi-User Smart Assistant
 
-A hackathon prototype that separates overlapping voices, identifies speakers, transcribes speech, detects smart-home commands, and returns personalized responses — all through a modern web UI.
+MUA separates overlapping voices, identifies enrolled speakers, transcribes their speech, and responds using personal workspace context. This research prototype runs in a browser or an Electron desktop window.
 
----
+The `ui-ux` branch contains the redesigned interface, local LLM adapters, and desktop packaging. The product website has its own repository: https://github.com/IntrosWorld/mua-website.
 
-## Quick Start
+## Run the application
 
-### 1. Create a virtual environment (inside this folder)
+Use Python 3.11+ and Node.js 22+.
 
-```bash
-cd multi_user_smart_assistant
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# macOS/Linux
-source venv/bin/activate
-```
-
-### 2. Install dependencies
-
-```bash
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+npm ci
+npm start
 ```
 
-> **Note:** `torch` and `speechbrain` are large. If you only want the demo oracle mode (no real model), the minimum working set is:  
-> `fastapi uvicorn[standard] python-multipart soundfile librosa numpy edge-tts faster-whisper jiwer pydub`
+On macOS/Linux, activate the environment with `source .venv/bin/activate`. Electron starts Python on an available loopback port and stops it when the app closes. Set `MUA_PYTHON` to a Python executable if it is not on PATH. The launcher automatically detects a project `.venv`.
 
-### 3. Run the server
+For the browser interface only:
 
-```bash
-uvicorn app:app --reload --host 0.0.0.0 --port 8000
+```powershell
+python -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-### 4. Open in browser
+Open http://127.0.0.1:8000.
 
-```
-http://127.0.0.1:8000
-```
+## Local models
 
----
+Install and start Ollama, then install a model:
 
-## How to Use the UI
-
-1. **Configure** speakers (2 or 3), noise level, overlap type, and separation mode.
-2. **Select commands** for each speaker from the dropdowns.
-3. Click **Generate Demo Audio** — this creates TTS voices for Mohit, Rahul, and Priya and mixes them.
-4. Click **Process Demo Audio** — the full pipeline runs and results appear.
-5. Alternatively, **Upload Audio** your own WAV/MP3 and click **Process Uploaded**.
-
----
-
-## Architecture
-
-```
-Mixed Audio (WAV)
-      │
-      ▼
-  VAD (energy threshold)
-      │
-      ▼
-  Speech Separation
-  ┌─────────────────────────────────┐
-  │  Oracle mode  │  SepFormer      │
-  │  (demo)       │  (real model)   │
-  └─────────────────────────────────┘
-      │
-      ▼  (per separated stream)
-  Speaker ID (ECAPA-TDNN cosine similarity)
-      │
-  ASR (faster-whisper base)
-      │
-  Intent Detection (rule-based)
-      │
-  Personalized Response Engine
-      │
-      ▼
-  JSON report + Web UI
+```powershell
+ollama pull llama3.2:3b
 ```
 
----
+In **Model settings**, select **Ollama**, use `http://127.0.0.1:11434`, refresh the installed models, and save a choice. MUA uses installed models and does not download LLM weights automatically. If Ollama uses a custom model directory, start it with the same `OLLAMA_MODELS` setting as your installation.
 
-## Synthetic Users (TTS)
+For LM Studio or llama.cpp, start an OpenAI-compatible server, choose **Local API**, and enter its address including `/v1`, for example `http://127.0.0.1:1234/v1`. These providers accept loopback HTTP addresses and require no API key.
 
-| User  | TTS Voice              | Room              | Playlist                  |
-|-------|------------------------|-------------------|---------------------------|
-| Mohit | en-IN-PrabhatNeural    | Mohit's bedroom   | Mohit's rock playlist     |
-| Rahul | en-US-GuyNeural        | Rahul's study room| Rahul's focus playlist    |
-| Priya | en-IN-NeerjaNeural     | Priya's room      | Priya's relaxing playlist |
+Legacy Transformers/OpenVINO weights remain available through **Local model weights**, with optional runtime dependencies and existing models under `models/llama-3.2-3b` or `models/llama-3.2-3b-ov`. Gemini remains an optional cloud provider.
 
-TTS voices are generated via **edge-tts** (Microsoft Azure Neural TTS, free, no API key needed).
+## Using the workspace
 
----
+- **Voice studio:** choose a demo conversation or upload a recording; configure overlap, noise, and separation; run the pipeline and export a report.
+- **People:** enroll 1 to 5 recordings per person and check a single-speaker voice match.
+- **Workspaces:** manage schedules, reminders, notes, playlists, watchlists, and simulated room controls. Assistant chat keeps separate history per person during the browser session.
+- **Model settings:** discover local models, check the connection, and save the response engine.
 
-## Demo Oracle vs Real Separation
+Reference demo mode uses known clean sources and does not evaluate real separation. Results show identity, transcripts, response sources, and fallback warnings.
 
-| Mode           | Description                                                      |
-|----------------|------------------------------------------------------------------|
-| **Oracle**     | Uses the clean TTS-generated sources directly. Always works, WER/SI-SNR calculable. |
-| **Real Model** | Attempts to load SpeechBrain SepFormer. Downloads ~300 MB. Falls back to naive if unavailable. |
+## Windows desktop build
 
----
-
-## Using Real Recorded Voices
-
-Replace the TTS enrollment files in `data/enrolled_speakers/<name>/` with real WAV recordings (16 kHz mono) and re-run speaker enrollment. The system will automatically recompute embeddings.
-
----
-
-## KPIs
-
-| Metric | Description |
-|--------|-------------|
-| **xRT** | `processing_time / audio_duration` — lower means faster than real-time |
-| **WER** | Word Error Rate comparing ASR output to ground truth (via `jiwer`) |
-| **SI-SNR** | Scale-Invariant Signal-to-Noise Ratio between clean source and separated output |
-| **Model Params** | PyTorch parameter count for the separation model (N/A in oracle mode) |
-
----
-
-## Model Downloads (all go to `models/` in this directory)
-
-| Model | Size | Purpose |
-|-------|------|---------|
-| faster-whisper base | ~150 MB | ASR |
-| speechbrain/spkrec-ecapa-voxceleb | ~100 MB | Speaker embeddings |
-| speechbrain/sepformer-whamr | ~300 MB | Speech separation (optional) |
-
-All downloads are redirected to `multi_user_smart_assistant/models/` — nothing goes to the C drive.
-
----
-
-## Project Structure
-
+```powershell
+npm run desktop:dist
 ```
-multi_user_smart_assistant/
-├── app.py                  FastAPI backend
-├── requirements.txt
-├── README.md
-├── models/                 All model downloads (local, not C drive)
-├── data/
-│   ├── enrolled_speakers/  Enrollment WAV files per user
-│   ├── generated/          TTS command WAVs
-│   ├── mixed/              Mixed audio + ground truth JSON
-│   └── noise/              (optional) noise samples
-├── outputs/
-│   ├── separated/          Separated speaker streams
-│   ├── reports/            Pipeline JSON reports
-│   └── speaker_db.pkl      Speaker embedding database
-├── src/
-│   ├── tts_generate.py
-│   ├── audio_mixer.py
-│   ├── vad.py
-│   ├── separation.py
-│   ├── speaker_id.py
-│   ├── asr.py
-│   ├── intent.py
-│   ├── response_engine.py
-│   ├── metrics.py
-│   ├── pipeline.py
-│   └── utils.py
-└── frontend/
-    ├── index.html
-    ├── style.css
-    └── script.js
+
+This creates a portable executable in `desktop-dist/`. It bundles Electron, the interface, and Python source. **Python and the packages in requirements.txt must be installed on the target machine.** Models and personal data are excluded. This is an unsigned development build, not a self-contained Python installer.
+
+Packaged builds use the application's user-data directory. Set `MUA_DATA_DIR` to an absolute directory to keep profiles, uploads, outputs, and model caches on another drive. Development uses the repository directory by default.
+
+To package from an installed Electron distribution:
+
+```powershell
+npm run desktop:dist -- --config.electronDist=node_modules/electron/dist
 ```
+
+## Checks
+
+```powershell
+python -m unittest discover -s tests -p "test_*.py" -v
+npm run test:desktop
+```
+
+With the backend at http://127.0.0.1:8765, run `npm run test:ui`. Set `MUA_TEST_URL` for another address. Browser checks cover inputs, report export, identification, workspace edits, chat history, model settings, escaping, both themes, and three viewport sizes. Install a browser with `npx playwright install chromium` if needed, or set `MUA_CHROMIUM`.
+
+## Architecture and data
+
+Mixed audio → voice activity detection → separation → speaker identification → recognition → intent detection → personal response.
+
+The backend is FastAPI with SpeechBrain, faster-whisper, and soundfile. Local LLM adapters use Python's standard HTTP client. The buildless interface uses self-hosted Geist fonts and licensed Phosphor icons.
+
+Profiles and LLM configuration live under `data/`; outputs and reports under `outputs/`. Recordings, runtime configuration, models, and build outputs are ignored by Git.
+
+This is a research prototype: voice matching is not authentication, room devices are simulated, and model answers can be inaccurate. Demo TTS is online and speech models may need initial downloads. Selecting Gemini sends profile context to a cloud provider.

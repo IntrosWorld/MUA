@@ -80,3 +80,9 @@ desktop.ini
 .env
 .env.*
 secrets.json
+
+# Desktop development and verification
+node_modules/
+desktop-dist/
+test-results/
+.runtime/

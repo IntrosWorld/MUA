@@ -5,7 +5,7 @@ Model downloads automatically to <project>/models/whisper/ (~1.6 GB int8)
 
 import os
 
-BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR   = os.environ.get("MUA_DATA_DIR", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 
 _whisper_model    = None

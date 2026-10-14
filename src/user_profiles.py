@@ -9,7 +9,7 @@ import os
 import json
 from datetime import datetime, date
 
-BASE_DIR     = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR     = os.environ.get("MUA_DATA_DIR", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PROFILES_DIR = os.path.join(BASE_DIR, "data", "profiles")
 os.makedirs(PROFILES_DIR, exist_ok=True)
 
@@ -209,6 +209,8 @@ DEFAULTS = {
 # ── CRUD ────────────────────────────────────────────────────────────────────
 
 def _path(name: str) -> str:
+    if not name or name in ('.', '..') or any(c in name for c in ('/', '\\', '\0')):
+        raise ValueError('Invalid profile name')
     return os.path.join(PROFILES_DIR, f"{name.lower()}.json")
 
 

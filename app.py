@@ -4,9 +4,14 @@ import uuid
 import asyncio
 import shutil
 import tempfile
+import re
+from starlette.concurrency import run_in_threadpool
+from pydantic import BaseModel, Field
+from typing import Literal
 
 # ── Project base ──
-BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+SOURCE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR   = os.environ.get("MUA_DATA_DIR", SOURCE_DIR)
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 os.makedirs(MODELS_DIR, exist_ok=True)
 
@@ -35,7 +40,7 @@ def _safe_symlink(src, dst, target_is_directory=False, *, dir_fd=None):
             shutil.copy2(src, dst)
 os.symlink = _safe_symlink
 
-sys.path.insert(0, BASE_DIR)
+sys.path.insert(0, SOURCE_DIR)
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -53,7 +58,7 @@ from src.user_profiles import (
     update_workspace_section, update_smart_home,
     add_calendar_event, add_note, add_reminder,
 )
-from src.llm_engine import set_llm_mode, get_llm_mode, set_gemini_key, get_status as llm_status
+from src.llm_engine import set_llm_mode, get_llm_mode, set_gemini_key, get_status as llm_status, configure_local, local_models
 from src.pipeline import run_pipeline
 from src.separation import list_models as list_sep_models, DEFAULT_MODEL as SEP_DEFAULT
 
@@ -61,17 +66,47 @@ app = FastAPI(title="Multi-User Smart Assistant")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[],
+    allow_origin_regex=r"http://(127\.0\.0\.1|localhost)(:\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+FRONTEND_DIR = os.path.join(SOURCE_DIR, "frontend")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUTS_DIR = os.path.join(BASE_DIR, "outputs")
 MIXED_DIR = os.path.join(DATA_DIR, "mixed")
 UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets"), check_dir=False), name="assets")
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "service": "mua", "version": "0.2.0"}
+
+
+@app.get("/common.js")
+def common_js():
+    return FileResponse(os.path.join(FRONTEND_DIR, "common.js"))
+
+
+@app.get("/models-page")
+def models_page():
+    return FileResponse(os.path.join(FRONTEND_DIR, "models.html"))
+
+
+@app.get("/models.js")
+def models_js():
+    return FileResponse(os.path.join(FRONTEND_DIR, "models.js"))
 
 
 @app.get("/")
@@ -176,7 +211,7 @@ async def process_demo(
             output_prefix="demo_mixed",
         )
 
-        report = run_pipeline(
+        report = await run_in_threadpool(run_pipeline,
             input_audio_path=mix_result["mixed_path"],
             ground_truth_path=mix_result["ground_truth_path"],
             clean_paths=mix_result["clean_paths"],
@@ -213,7 +248,7 @@ async def process_audio(
         # Ensure speakers enrolled
         enroll_speakers()
 
-        report = run_pipeline(
+        report = await run_in_threadpool(run_pipeline,
             input_audio_path=tmp_path,
             demo_oracle=demo_oracle,
             num_speakers=num_speakers,
@@ -300,8 +335,8 @@ async def enroll_speaker_route(
     try:
         if not name.strip():
             raise HTTPException(status_code=400, detail="Name is required.")
-        if len(files) < 1:
-            raise HTTPException(status_code=400, detail="At least 1 audio file is required.")
+        if not 1 <= len(files) <= 5:
+            raise HTTPException(status_code=400, detail="Choose between 1 and 5 audio files.")
 
         # Save uploaded files to temp dir
         tmp_paths = []
@@ -442,6 +477,10 @@ async def create_profile(name: str, request: Request):
     from src.user_profiles import DEFAULTS, save_profile as _save
     import copy
     body = await request.json()
+    if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,49}', name):
+        raise HTTPException(status_code=400, detail="Use letters, numbers, or hyphens for the profile identifier.")
+    if get_profile(name):
+        raise HTTPException(status_code=409, detail="A workspace with this name already exists.")
     new_profile = {
         "name": name,
         "display_name": body.get("display_name", name),
@@ -454,6 +493,10 @@ async def create_profile(name: str, request: Request):
     new_profile["workspace"]["calendar"] = []
     new_profile["workspace"]["notes"] = []
     new_profile["workspace"]["reminders"] = []
+    new_profile["workspace"]["fitness"] = {"steps_today": 0, "calories_burned": 0, "water_ml": 0, "workouts": [], "goal": ""}
+    new_profile["workspace"]["movies"] = {"watchlist": [], "watched": []}
+    new_profile["workspace"]["music"] = {"playlists": [], "currently_playing": None}
+    new_profile["workspace"]["smart_home"] = {"bedroom_light": False, "fan": False, "ac": False, "tv": False, "ac_temp": 24}
     _save(new_profile)
     return JSONResponse({"status": "ok", "profile": new_profile})
 
@@ -468,8 +511,8 @@ def llm_status_route():
 async def set_mode(request: Request):
     body = await request.json()
     mode = body.get("mode")
-    if mode not in ("offline", "gemini"):
-        raise HTTPException(status_code=400, detail="mode must be 'offline' or 'gemini'")
+    if mode not in ("ollama", "local-api", "offline", "gemini"):
+        raise HTTPException(status_code=400, detail="Unknown inference provider")
     set_llm_mode(mode)
     return JSONResponse({"status": "ok", "mode": mode})
 
@@ -482,19 +525,50 @@ async def set_key(request: Request):
     set_gemini_key(key)
     return JSONResponse({"status": "ok"})
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=8000)
+
+
+class ChatRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    message: str = Field(min_length=1, max_length=8000)
+    mode: Literal["ollama", "local-api", "offline", "gemini"] | None = None
+    history: list[ChatTurn] = Field(default_factory=list, max_length=20)
+
+
+@app.get("/llm/models")
+def discover_models(provider: str = "ollama", base_url: str | None = None):
+    try:
+        return {"models": local_models(provider, base_url), "connected": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        return JSONResponse({"models": [], "connected": False, "error": str(exc)}, status_code=503)
+
+
+@app.post("/llm/config")
+async def local_configuration(request: Request):
+    try:
+        return {"status": "ok", "local_config": configure_local(await request.json())}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 @app.post("/llm/chat")
-async def llm_chat(request: Request):
+async def llm_chat(body: ChatRequest):
     """Direct LLM chat for a user — used by profile page."""
     from src.llm_engine import generate as llm_generate
     from src.user_profiles import get_context_summary
     try:
-        body      = await request.json()
-        name      = body.get("name", "User")
-        message   = body.get("message", "")
-        mode      = body.get("mode")
-        context   = get_context_summary(name)
-        result    = llm_generate(name, context, message, "chat", mode=mode)
+        if not get_profile(body.name):
+            raise HTTPException(status_code=404, detail="Profile not found")
+        context = get_context_summary(body.name)
+        result = await run_in_threadpool(llm_generate, body.name, context, body.message,
+            "chat", mode=body.mode, history=[turn.model_dump() for turn in body.history])
         return JSONResponse(result)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

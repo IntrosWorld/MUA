@@ -17,13 +17,16 @@ Default: offline (auto-upgrades to openvino if converted model exists)
 """
 
 import os, sys
+from .local_llm import discover, chat as local_chat, validate_url
 
-BASE_DIR        = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR        = os.environ.get("MUA_DATA_DIR", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODELS_DIR      = os.path.join(BASE_DIR, "models", "llama-3.2-3b")
 OV_MODELS_DIR   = os.path.join(BASE_DIR, "models", "llama-3.2-3b-ov")
 CONFIG_FILE     = os.path.join(BASE_DIR, "data", "llm_config.json")
 
-_mode           = "offline"
+_mode           = "ollama"
+_local_config = {"ollama_url": "http://127.0.0.1:11434", "ollama_model": "llama3.2:3b",
+                 "local_api_url": "http://127.0.0.1:1234/v1", "local_api_model": ""}
 _llm_model      = None
 _llm_tok        = None
 _ov_pipe        = None          # OpenVINO pipeline
@@ -36,6 +39,8 @@ SYSTEM_PROMPT = """You are a smart personal assistant embedded in a multi-user s
 You have access to the user's personal profile including their schedule, fitness data, music playlists, movie watchlist, notes, and smart home controls.
 Always address the user by their first name. Be concise, warm, and helpful.
 When answering questions about their data, use the profile context provided.
+Chat is read-only. Do not claim to have changed devices, created events, or saved data.
+Room controls are simulated. If asked to change something, direct the user to the workspace controls.
 Keep responses under 3 sentences unless asked for more detail."""
 
 
@@ -48,7 +53,12 @@ def _load_config():
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE) as f:
                 cfg = json.load(f)
-            _mode = cfg.get("mode", "offline")
+            _mode = cfg.get("mode", "ollama")
+            if _mode not in ("ollama", "local-api", "offline", "gemini"):
+                _mode = "ollama"
+            _local_config.update({k: cfg[k] for k in _local_config if k in cfg})
+            if cfg.get("gemini_key") and not os.environ.get("GEMINI_API_KEY"):
+                os.environ["GEMINI_API_KEY"] = cfg["gemini_key"]
     except Exception:
         pass
 
@@ -56,7 +66,7 @@ def _save_config():
     import json
     os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
-        json.dump({"mode": _mode, "gemini_key": os.environ.get("GEMINI_API_KEY", "")}, f)
+        json.dump({"mode": _mode, **_local_config, "gemini_key": os.environ.get("GEMINI_API_KEY", "")}, f)
 
 _load_config()
 
@@ -65,8 +75,8 @@ _load_config()
 
 def set_llm_mode(mode: str):
     global _mode
-    if mode not in ("offline", "gemini"):
-        raise ValueError("mode must be 'offline' or 'gemini'")
+    if mode not in ("ollama", "local-api", "offline", "gemini"):
+        raise ValueError("Unknown inference provider")
     _mode = mode
     _save_config()
     print(f"[LLM] Mode set to: {mode}")
@@ -75,8 +85,31 @@ def get_llm_mode() -> str:
     return _mode
 
 def set_gemini_key(key: str):
+    global _gemini_client
+    _gemini_client = None
     os.environ["GEMINI_API_KEY"] = key
     _save_config()
+
+
+def configure_local(body: dict):
+    updates = {}
+    for key in _local_config:
+        if key in body:
+            value = body[key]
+            if not isinstance(value, str) or len(value) > 250:
+                raise ValueError('Invalid runtime configuration')
+            updates[key] = validate_url(value) if key.endswith('_url') else value.strip()
+    _local_config.update(updates)
+    _save_config()
+    return dict(_local_config)
+
+
+def local_models(provider=None, base=None):
+    provider = provider or (_mode if _mode in ('ollama', 'local-api') else 'ollama')
+    if provider not in ('ollama', 'local-api'):
+        raise ValueError('Select Ollama or a local API runtime')
+    url = base or _local_config['ollama_url' if provider == 'ollama' else 'local_api_url']
+    return discover(provider, url)
 
 
 # ── OpenVINO backend (Arc GPU / NPU) ────────────────────────────────────────
@@ -89,7 +122,7 @@ def _ov_model_ready() -> bool:
 
 
 def _load_openvino():
-    global _ov_pipe, _llm_ready, _llm_error, _active_backend
+    global _ov_pipe, _llm_tok, _llm_ready, _llm_error, _active_backend
     if _ov_pipe is not None:
         return True
     if not _ov_model_ready():
@@ -286,8 +319,11 @@ def generate(
     transcript: str,
     intent: str,
     mode: str = None,
+    history: list = None,
 ) -> dict:
     effective_mode = mode or _mode
+    if effective_mode not in ('ollama', 'local-api', 'offline', 'gemini'):
+        raise ValueError('Unknown inference provider')
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -298,8 +334,19 @@ def generate(
             f"Please respond to {user_name} personally based on their profile data above."
         )},
     ]
+    if history:
+        messages[1:1] = [{'role': m['role'], 'content': m['content']} for m in history[-20:]
+                         if m.get('role') in ('user', 'assistant') and isinstance(m.get('content'), str)]
 
-    if effective_mode == "gemini":
+    if effective_mode in ('ollama', 'local-api'):
+        prefix = 'ollama' if effective_mode == 'ollama' else 'local_api'
+        model_name = _local_config[prefix + '_model']
+        try:
+            response = local_chat(effective_mode, _local_config[prefix + '_url'], model_name, messages)
+        except (RuntimeError, ValueError) as exc:
+            return {'response': '', 'mode': effective_mode, 'model': model_name, 'error': str(exc)}
+        return {'response': response, 'mode': effective_mode, 'model': model_name, 'error': None}
+    elif effective_mode == "gemini":
         response = _generate_gemini(messages)
         model_name = "gemini-1.5-flash"
         if response.startswith("[Gemini"):
@@ -353,4 +400,5 @@ def get_status() -> dict:
         "openvino_model_ready": ov_ready,
         "openvino_model_path": OV_MODELS_DIR if ov_ready else None,
         "active_backend": _active_backend,
+        "local_config": dict(_local_config),
     }
